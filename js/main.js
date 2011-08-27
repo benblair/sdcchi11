@@ -5,15 +5,14 @@ var drawPeep = function(peep) {
     var left = peep.X;
     var top = peep.Y;
     var pic = peep.ProfilePic;
-    var interests = peep.Words.split(',');
+    var interests = peep.GroupName;
 };
 
 var normalizePeep = function(peep) {
     return {
         x: peep.X,
         y: peep.Y,
-        pic: peep.ProfilePic,
-        interests: peep.Words.split(',')
+        pic: peep.ProfilePic
     };
 };
 
@@ -36,10 +35,10 @@ var updatePeep = function(update) {
             return;
     }
 };
-
+/*
 var simulatePeeps = function(callback) {
     var i;
-    for(i = 0; i < 50; i++) {
+    for(i = 0; i < 250; i++) {
         addPeep({
             X: Math.random(),
             Y: Math.random(),
@@ -48,6 +47,23 @@ var simulatePeeps = function(callback) {
         });
     }
     callback();
+};
+*/
+var connectToApi = function(callback) {
+    
+    var socket = io.connect("https://api.cerrio.com:443");
+    
+    socket.on("peeps", function(update){
+       updatePeep(update);
+    });
+    
+    socket.emit("stream", {
+        id: "peeps",
+        uri: "SDC/Output/Data",
+        subscription: "True"
+    },
+    callback);
+    
 };
 
 var height = window.innerHeight - 20;
@@ -65,7 +81,7 @@ var loadPeeps = function() {
         .attr("width", width)
         .attr("height", height);
     
-    simulatePeeps(function() {
+    connectToApi(function() {
         vis.selectAll("circle")
             .data(peeps)
             .enter().append("svg:circle")
@@ -74,8 +90,9 @@ var loadPeeps = function() {
             .attr("strike-width", "none")
             .attr("fill", function() { return colorize(Math.random()); })
             .attr("fill-opacity", 0.5)
-            .attr("visibility", "hidden")
-            .attr("r", function() { return getRadius(Math.random()); })
+            .attr("visibility", "visible")
+            .attr("r", function() { return getRadius(Math.random()); });
+            /*
             .on("mouseover", function() {
                 d3.select(this).transition()
                 .attr("cx", function() { return getX(Math.random()); })
@@ -85,7 +102,8 @@ var loadPeeps = function() {
                 //.ease("elastic", 0.5, 0.45);
                 .ease("cubic-in-out");
             });
-    
+            */
+    /*
     d3.selectAll("circle")
         .transition()
         .attr("cx", function() { return getX(Math.random()); })
@@ -94,5 +112,6 @@ var loadPeeps = function() {
         .delay(function(d, i) { return i * del(Math.random()); })
         .duration(1000)
         .ease("elastic", 10, 0.45);
+        */
  });
 };
