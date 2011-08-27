@@ -39,7 +39,7 @@ var updatePeep = function(update) {
 
 var simulatePeeps = function(callback) {
     var i;
-    for(i = 0; i < 250; i++) {
+    for(i = 0; i < 50; i++) {
         addPeep({
             X: Math.random(),
             Y: Math.random(),
