@@ -1,18 +1,14 @@
 var peeps = [];
 var mainTag = "#SDCChi";
 
-var drawPeep = function(peep) {
-    var left = peep.X;
-    var top = peep.Y;
-    var pic = peep.ProfilePic;
-    var interests = peep.GroupName;
-};
-
 var normalizePeep = function(peep) {
     return {
         x: peep.X,
         y: peep.Y,
-        pic: peep.ProfilePic
+        pic: peep.ProfilePic,
+        handle: peep.TwitterHandle,
+        name: peep.RealName,
+        group: peep.GroupName
     };
 };
 
@@ -28,6 +24,7 @@ var updatePeep = function(update) {
                 addPeep(item);
             break;
         case 'modify':
+                updatePeep(item);
             break;
         case 'delete':
             break;
@@ -75,15 +72,57 @@ var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl
 //var y2 = d3.scale.linear().domain([0,1]).range([height * 0.2 - 20, height * 0.8 + 20]);
 var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
-var loadPeeps = function() {
+var loadPeepsDom = function() {
+    var canvas = $("#peeps");
+    var i;
+    for(i = 0; i < peeps.length; i++) {
+        var data = peeps[i];
+        var newPeep = $('<img />');
+        newPeep.attr("src", data.pic);
+        newPeep.attr("title", data.handle);
+        newPeep.attr("alt", data.handle);
+        newPeep.attr("width", "30px");
+        newPeep.attr("height", "30px");
+        var peepDiv = $('<div class="peep"></div>');
+        peepDiv.css("left", (width / 2) + "px");
+        peepDiv.css("top", (height / 2) + "px");
+        peepDiv.attr("id", data.handle);
+        
+        peepDiv.append(newPeep);
+        canvas.append(peepDiv);
+    }
+    setTimeout(function() {
+        for(i = 0; i < peeps.length; i++) {
+            var data = peeps[i];
+            var peepDiv = $("#" + data.handle);
+            peepDiv.animate({
+                left: getX(data.x),
+                top: getY(data.y)
+            },
+            {
+                duration: 500
+            });   
+        }
+    }, 1000);
+};
+
+var loadPeepsSvg = function() {
     vis = d3.select("body")
         .append("svg:svg")
+        .attr("class", "peeps")
         .attr("width", width)
         .attr("height", height);
     
     connectToApi(function() {
-        vis.selectAll("circle")
+        vis.selectAll(".peeps")
             .data(peeps)
+            .append("svg:image")
+            .attr("xlink:href", "https://si0.twimg.com/profile_images/1453831880/profile-pic_normal.jpg") // function(d) { return d.pic; })
+            .attr("width", "30")
+            .attr("height", "30");
+            //.attr("left", function(d) { return getX(d.x); })
+            //.attr("top", function(d) { return getY(d.t); })
+            /*
             .enter().append("svg:circle")
             .attr("cx", function(d) { return getX(d.x); })
             .attr("cy", function(d) { return getY(d.y); })
@@ -92,6 +131,7 @@ var loadPeeps = function() {
             .attr("fill-opacity", 0.5)
             .attr("visibility", "visible")
             .attr("r", function() { return getRadius(Math.random()); });
+            */
             /*
             .on("mouseover", function() {
                 d3.select(this).transition()
@@ -114,4 +154,9 @@ var loadPeeps = function() {
         .ease("elastic", 10, 0.45);
         */
  });
+};
+
+
+var loadPeeps = function() {
+    connectToApi(loadPeepsDom);
 };
