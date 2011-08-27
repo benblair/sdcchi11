@@ -39,7 +39,7 @@ var updatePeep = function(update) {
 
 var simulatePeeps = function(callback) {
     var i;
-    for(i = 0; i < 500; i++) {
+    for(i = 0; i < 150; i++) {
         addPeep({
             X: Math.random(),
             Y: Math.random(),
@@ -50,16 +50,21 @@ var simulatePeeps = function(callback) {
     callback();
 };
 
-var getX = d3.scale.linear().domain([0,1]).range([screen.width / 2 - 400,screen.width / 2 + 400]);
-var getY = d3.scale.linear().domain([0,1]).range([0,600]);
+var height = window.innerHeight - 20;
+var width = window.innerWidth - 20;
+var getX = d3.scale.linear().domain([0,1]).range([width / 2 - 400, width / 2 + 400]);
+var getY = d3.scale.linear().domain([0,1]).range([0,height]);
 var getRadius = d3.scale.linear().domain([0,1]).range([5,10]);
 var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
+var y2 = d3.scale.linear().domain([0,1]).range([height * 0.2 - 20, height * 0.8 + 20]);
+var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
 var loadPeeps = function() {
     vis = d3.select("body")
         .append("svg:svg")
-        .attr("width", screen.width)
-        .attr("height", screen.height);
+        .attr("width", width)
+        .attr("height", height);
+    
     simulatePeeps(function() {
         vis.selectAll("circle")
             .data(peeps)
@@ -69,7 +74,24 @@ var loadPeeps = function() {
             .attr("strike-width", "none")
             .attr("fill", function() { return colorize(Math.random()); })
             .attr("fill-opacity", 0.5)
-            //.attr("visibility", "hidden")
-            .attr("r", function() { return getRadius(Math.random()); });
-    });  
+            .attr("visibility", "hidden")
+            .attr("r", function() { return getRadius(Math.random()); })
+            .on("mouseover", function() {
+                d3.select(this).transition()
+                .attr("cy", function() { return y2(Math.random()); })
+                .delay(0)
+                .duration(2000)
+                .ease("elastic");
+                //.ease("cubic-in-out");
+            });
+    
+    d3.selectAll("circle")
+        .transition()
+        .attr("cx", function() { return getX(Math.random()); })
+        .attr("cy", function() { return y2(Math.random()); })
+        .attr("visibility", "visible")
+        .delay(function(d, i) { return i * del(Math.random()); })
+        .duration(1000)
+        .ease("elastic", 10, 0.45);
+ });
 };
