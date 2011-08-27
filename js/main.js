@@ -39,7 +39,7 @@ var updatePeep = function(update) {
 
 var simulatePeeps = function(callback) {
     var i;
-    for(i = 0; i < 150; i++) {
+    for(i = 0; i < 250; i++) {
         addPeep({
             X: Math.random(),
             Y: Math.random(),
@@ -52,11 +52,11 @@ var simulatePeeps = function(callback) {
 
 var height = window.innerHeight - 20;
 var width = window.innerWidth - 20;
-var getX = d3.scale.linear().domain([0,1]).range([width / 2 - 400, width / 2 + 400]);
-var getY = d3.scale.linear().domain([0,1]).range([0,height]);
-var getRadius = d3.scale.linear().domain([0,1]).range([5,10]);
+var getX = d3.scale.linear().domain([0,1]).range([200, width - 100]);
+var getY = d3.scale.linear().domain([0,1]).range([80,height - 80]);
+var getRadius = function(d) { return 15; }; // d3.scale.linear().domain([0,1]).range([5,10]);
 var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
-var y2 = d3.scale.linear().domain([0,1]).range([height * 0.2 - 20, height * 0.8 + 20]);
+//var y2 = d3.scale.linear().domain([0,1]).range([height * 0.2 - 20, height * 0.8 + 20]);
 var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
 var loadPeeps = function() {
@@ -78,17 +78,18 @@ var loadPeeps = function() {
             .attr("r", function() { return getRadius(Math.random()); })
             .on("mouseover", function() {
                 d3.select(this).transition()
-                .attr("cy", function() { return y2(Math.random()); })
+                .attr("cx", function() { return getX(Math.random()); })
+                .attr("cy", function() { return getY(Math.random()); })
                 .delay(0)
                 .duration(2000)
-                .ease("elastic");
-                //.ease("cubic-in-out");
+                //.ease("elastic", 0.5, 0.45);
+                .ease("cubic-in-out");
             });
     
     d3.selectAll("circle")
         .transition()
         .attr("cx", function() { return getX(Math.random()); })
-        .attr("cy", function() { return y2(Math.random()); })
+        .attr("cy", function() { return getY(Math.random()); })
         .attr("visibility", "visible")
         .delay(function(d, i) { return i * del(Math.random()); })
         .duration(1000)
