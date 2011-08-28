@@ -16,6 +16,10 @@ var addPeep = function(peep) {
     peeps.push(normalizePeep(peep));
 };
 
+var modifyPeep = function(peep) {
+    
+};
+
 var updatePeep = function(update) {
     var action = update.action;
     var item = update.item;
@@ -24,7 +28,7 @@ var updatePeep = function(update) {
                 addPeep(item);
             break;
         case 'modify':
-                updatePeep(item);
+                modifyPeep(item);
             break;
         case 'delete':
             break;
@@ -73,6 +77,9 @@ var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl
 var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
 var loadPeepsDom = function() {
+    $(".group").click(function(){
+        $(this).hide("explode", 1500);
+    });
     var canvas = $("#peeps");
     var i;
     for(i = 0; i < peeps.length; i++) {
@@ -81,8 +88,8 @@ var loadPeepsDom = function() {
         newPeep.attr("src", data.pic);
         newPeep.attr("title", data.handle);
         newPeep.attr("alt", data.handle);
-        newPeep.attr("width", "30px");
-        newPeep.attr("height", "30px");
+        newPeep.attr("width", "50px");
+        newPeep.attr("height", "50px");
         var peepDiv = $('<div class="peep"></div>');
         peepDiv.css("left", (width / 2) + "px");
         peepDiv.css("top", (height / 2) + "px");
