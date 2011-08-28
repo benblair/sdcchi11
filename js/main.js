@@ -1,6 +1,8 @@
 var peeps = [];
+var peepsByKey = { };
 var groups = { };
 var excludedGroups = { };
+var peepsLoaded = false;
 
 var height = window.innerHeight - 20;
 var width = window.innerWidth - 20;
@@ -10,9 +12,31 @@ var getRadius = function(d) { return 15; };
 var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
 var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
-var mainTag = "#SDCChi";
+var canvas = $("#peeps");
+var socket;
+    
+var drawPeep = function(data) {
+    var newPeep = $('<img />');
+    newPeep.attr("src", data.pic);
+    newPeep.attr("title", data.handle);
+    newPeep.attr("alt", data.handle);
+    newPeep.attr("width", "50px");
+    newPeep.attr("height", "50px");
+    var peepDiv = $('<div class="peep"></div>');
+    peepDiv.css("left", (width / 2) + "px");
+    peepDiv.css("top", (height / 2) + "px");
+    peepDiv.attr("id", data.handle);
+    peepDiv.append(newPeep);
+    canvas.append(peepDiv);
+};
 
 var normalizePeep = function(peep) {
+    if(!peep.TwitterHandle) {
+        var origPeep = peepsByKey[peep.Key];
+        if(origPeep) {
+            peep.TwitterHandle = origPeep.TwitterHandle;
+        }
+    }
     return {
         x: peep.X,
         y: peep.Y,
@@ -24,6 +48,7 @@ var normalizePeep = function(peep) {
 };
 
 var addPeep = function(peep) {
+    peepsByKey[peep.Key] = peep;
     var group = groups[peep.GroupName];
     if(!group) {
         group = {
@@ -40,11 +65,28 @@ var addPeep = function(peep) {
         groupDiv.attr("id", "group-" + group.name);
         canvas.append(groupDiv);
     }
-    peeps.push(normalizePeep(peep));
+    var data = normalizePeep(peep);
+    peeps.push(data);
+    if(!peepsLoaded) {
+        drawPeep(data);
+    }
 };
 
-var modifyPeep = function(peep) {
-    
+var modifyPeep = function(data) {
+    var peep = normalizePeep(data);
+    var peepDiv = $('#' + peep.handle);
+    var changes = { };
+    if(peep.x) {
+        changes.left = getX(peep.x);
+    }
+    if(peep.y) {
+        changes.top = getY(peep.y);
+    }
+    peepDiv.animate(
+        changes,
+        {
+            duration: 500
+        });
 };
 
 var updatePeep = function(update) {
@@ -66,10 +108,31 @@ var updatePeep = function(update) {
 
 var connectToApi = function(callback) {
     
-    var socket = io.connect("https://api.cerrio.com:443");
+    socket = io.connect("https://api.cerrio.com:443");
     
     socket.on("peeps", function(update){
        updatePeep(update);
+    });
+    
+    // First, clear out any existing subscription for this twitter usre
+    socket.emit("update", {
+        id: 'login',
+        uri: 'SDC/Input/Users',
+        action: 'delete',
+        itemKey: username
+    });
+    
+    socket.emit("update", {
+        id: 'login',
+        uri: 'SDC/Input/Users',
+        action: 'add',
+        itemKey: username,
+        item: {
+            Handle: username,
+            HashTag: hashtag,
+            DeletedTerms: '',
+            TwitterSearchKey: '' // (cerrio ? cerrio.client.uid : username)
+        }
     });
     
     socket.emit("stream", {
@@ -106,26 +169,30 @@ var showUserTweets = function(handle) {
     }
 };
 
+var excludedWords = [];
+
 var loadPeepsDom = function() {
+    peepsLoaded = true;
+    canvas = $("#peeps");
     $(".group").click(function(){
+        var groupName = $(this).text();
         $(this).hide("explode", 1500);
+        excludedWords.push(groupName);
+        socket.emit("update", {
+            id: 'login',
+            uri: 'SDC/Input/Users',
+            action: 'modify',
+            itemKey: username,
+            item: {
+                DeletedTerms: excludedWords.join(',')
+            }
+        });
+        
     });
-    var canvas = $("#peeps");
     var i;
     for(i = 0; i < peeps.length; i++) {
         var data = peeps[i];
-        var newPeep = $('<img />');
-        newPeep.attr("src", data.pic);
-        newPeep.attr("title", data.handle);
-        newPeep.attr("alt", data.handle);
-        newPeep.attr("width", "50px");
-        newPeep.attr("height", "50px");
-        var peepDiv = $('<div class="peep"></div>');
-        peepDiv.css("left", (width / 2) + "px");
-        peepDiv.css("top", (height / 2) + "px");
-        peepDiv.attr("id", data.handle);
-        peepDiv.append(newPeep);
-        canvas.append(peepDiv);
+        drawPeep(data);
     }
     $(".peep").click(function(e) {
         
