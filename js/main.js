@@ -1,4 +1,15 @@
 var peeps = [];
+var groups = { };
+var excludedGroups = { };
+
+var height = window.innerHeight - 20;
+var width = window.innerWidth - 20;
+var getX = d3.scale.linear().domain([0,1]).range([60, width - 380]);
+var getY = d3.scale.linear().domain([0,1]).range([80,height - 80]);
+var getRadius = function(d) { return 15; };
+var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
+var del = d3.scale.linear().domain([0,1]).range([0,1]);
+
 var mainTag = "#SDCChi";
 
 var normalizePeep = function(peep) {
@@ -13,6 +24,22 @@ var normalizePeep = function(peep) {
 };
 
 var addPeep = function(peep) {
+    var group = groups[peep.GroupName];
+    if(!group) {
+        group = {
+            x: getX(peep.GroupCenterX),
+            y: getY(peep.GroupCenterY),
+            name: peep.GroupName
+        };
+        groups[peep.GroupName] = group;
+        
+        var canvas = $("#groups");
+        var groupDiv = $('<div class="group">' + group.name + '</div>');
+        groupDiv.css("left", (group.x) + "px");
+        groupDiv.css("top", (group.y) + "px");
+        groupDiv.attr("id", "group-" + group.name);
+        canvas.append(groupDiv);
+    }
     peeps.push(normalizePeep(peep));
 };
 
@@ -36,20 +63,7 @@ var updatePeep = function(update) {
             return;
     }
 };
-/*
-var simulatePeeps = function(callback) {
-    var i;
-    for(i = 0; i < 250; i++) {
-        addPeep({
-            X: Math.random(),
-            Y: Math.random(),
-            ProfilePic: "https://si0.twimg.com/profile_images/1453831880/profile-pic_normal.jpg",
-            Words: "Foo,Bar,Social,Mobile"
-        });
-    }
-    callback();
-};
-*/
+
 var connectToApi = function(callback) {
     
     var socket = io.connect("https://api.cerrio.com:443");
@@ -67,55 +81,9 @@ var connectToApi = function(callback) {
     
 };
 
-var height = window.innerHeight - 20;
-var width = window.innerWidth - 20;
-var getX = d3.scale.linear().domain([0,1]).range([60, width - 380]);
-var getY = d3.scale.linear().domain([0,1]).range([80,height - 80]);
-var getRadius = function(d) { return 15; }; // d3.scale.linear().domain([0,1]).range([5,10]);
-var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
-//var y2 = d3.scale.linear().domain([0,1]).range([height * 0.2 - 20, height * 0.8 + 20]);
-var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
 var showUserTweets = function(handle) {
     var twitterbox = $("#twitter-box");
-    /*
-    var newBox = [
-        '',
-        '<script>',
-        'var height = 600;',
-        'new TWTR.Widget({',
-        '  version: 2,',
-        '  type: "profile",',
-        '  rpp: 10,',
-        '  interval: 30000,',
-        '  width: 250,',
-        '  height: 600,',
-        '  theme: {',
-        '    shell: {',
-        '      background: "#333333",',
-        '      color: "#ffffff"',
-        '    },',
-        '    tweets: {',
-        '      background: "#000000",',
-        '      color: "#ffffff",',
-        '      links: "#6da9d1"',
-        '    }',
-        '  },',
-        '  features: {',
-        '    scrollbar: true,',
-        '    loop: false,',
-        '    live: true,',
-        '    hashtags: true,',
-        '    timestamp: true,',
-        '    avatars: false,',
-        '    behavior: "all"',
-        '  }',
-        '}).render().setUser("' + handle + '").start();',
-        '</script>'
-    ].join('\n');
-    twitterbox.empty();
-    twitterbox.append(newBox);
-    */
     if(twtr) {
         twtr
             .destroy()
