@@ -4,8 +4,8 @@ var excludedGroups = { };
 
 var height = window.innerHeight - 20;
 var width = window.innerWidth - 20;
-var getX = d3.scale.linear().domain([0,1]).range([60, width - 380]);
-var getY = d3.scale.linear().domain([0,1]).range([80,height - 80]);
+var getX = d3.scale.linear().domain([0,1]).range([120, width - 640]);
+var getY = d3.scale.linear().domain([0,1]).range([120,height - 240]);
 var getRadius = function(d) { return 15; };
 var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
 var del = d3.scale.linear().domain([0,1]).range([0,1]);
