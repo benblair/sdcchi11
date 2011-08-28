@@ -84,6 +84,7 @@ var connectToApi = function(callback) {
 
 var showUserTweets = function(handle) {
     var twitterbox = $("#twitter-box");
+    twitterbox.css('visibility', 'visible');
     if(twtr) {
         twtr
             .destroy()

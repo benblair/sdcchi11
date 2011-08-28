@@ -4,23 +4,26 @@
   <meta charset='utf-8'>
 
   <title>GatherPeeps: Beautiful Social Discovery</title>
-  <link rel="stylesheet" href="normalize.css">
-  <link rel="stylesheet/less" type="text/css" href="styles.less">
+  <!-- <link rel="stylesheet" href="normalize.css"> -->
+  <link rel="stylesheet" type="text/css" href="styles.css">
   <link href='http://fonts.googleapis.com/css?family=Merriweather:700' rel='stylesheet' type='text/css'>
   <link href='http://fonts.googleapis.com/css?family=Carter+One' rel='stylesheet' type='text/css'>
-  <script src="less.js" type="text/javascript"></script>
-
-<body style="background-image: url(http://subtlepatterns.com/patterns/black_linen_v2.png); background-attachment: initial; background-origin: initial; background-clip: initial; background-color: initial; background-position: initial initial; background-repeat: initial initial; ">
-    <!-- <a href="http://github.com/benblair/sdcchi11"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a> -->
+  <!-- <script src="less.js" type="text/javascript"></script> -->
+</head>
+<body id="body" style="background-image: url(http://subtlepatterns.com/patterns/black_linen_v2.png); background-attachment: initial; background-origin: initial; background-clip: initial; background-color: initial; background-position: initial initial; background-repeat: initial initial; ">
 
     <div id="title">
-        <span class="title-text">Gather </span><span class="orange-title-text">Peeps</span>
+        <span class="title-text">Gather </span><span class="orange-title-text">Peeps</span><span id="user-text">@stochastic_code</span><span id="search-term">#SDCChi</span>
     </div>
     
+    <div id="sign-in">
+        <form id="sign-in-form" action="javascript:start()">
+            <input id="username" type="text" placeholder="Twitter @Username">
+            <input id="hashcode" type="text" placeholder="Search #hashtag">
+            <input id="gather-submit" type="submit" value="Gather">
+        </form>
+    </div>
     
-    <div id="peeps"></div>
-    
-    <div id="groups"></div>
     <script src="http://widgets.twimg.com/j/2/widget.js"></script>
     <div id="twitter-box">
         <script>
@@ -62,10 +65,30 @@
     <script src="js/main.js" type="text/javascript"></script>
     
     <script type="text/javascript">
-        $(function(){
+        var username= '';
+        var hashtag = '';
+        var start = function() {
+            $('#sign-in').hide();
+            username = $('#username').val();
+            hashtag = $('#hashcode').val();
+            if(username.slice(0,1) !== '@') {
+                username = '@' + username;
+            }
+            if(hashtag.slice(0,1) !== '#') {
+                hashtag = '#' + hashtag;
+            }
+            $('#user-text').text(username);
+            $('#search-term').text(hashtag);
+            $('#user-text').css('visibility', 'visible');
+            $('#search-term').css('visibility', 'visible');
+            $('#body').append('<div id="peeps"> </div>');
+            $('#body').append('<div id="groups"> </div>');
             loadPeeps();
+        };
+        
+        $(function(){
         });
     </script>
-</head>
+
 </body>
 </html>
