@@ -71,7 +71,7 @@
         var start = function() {
             $('#sign-in').hide();
             username = $('#username').val();
-            hashtag = $('#hashcode').val();
+            hashtag = $('#hashcode').val().toLowerCase();
             if(username.slice(0,1) !== '@') {
                 username = '@' + username;
             }

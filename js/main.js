@@ -115,13 +115,14 @@ var connectToApi = function(callback) {
     });
     
     // First, clear out any existing subscription for this twitter usre
+    /*
     socket.emit("update", {
         id: 'login',
         uri: 'SDC/Input/Users',
         action: 'delete',
         itemKey: username
     });
-    
+    */
     socket.emit("update", {
         id: 'login',
         uri: 'SDC/Input/Users',
@@ -130,15 +131,14 @@ var connectToApi = function(callback) {
         item: {
             Handle: username,
             HashTag: hashtag,
-            DeletedTerms: '',
-            TwitterSearchKey: '' // (cerrio ? cerrio.client.uid : username)
+            DeletedTerms: ''
         }
     });
     
     socket.emit("stream", {
         id: "peeps",
         uri: "SDC/Output/Data",
-        subscription: "True"
+        subscription: "True" //"@.OriginatingUser = '" +  username + "'"
     },
     callback);
     
