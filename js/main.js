@@ -69,12 +69,73 @@ var connectToApi = function(callback) {
 
 var height = window.innerHeight - 20;
 var width = window.innerWidth - 20;
-var getX = d3.scale.linear().domain([0,1]).range([200, width - 100]);
+var getX = d3.scale.linear().domain([0,1]).range([60, width - 380]);
 var getY = d3.scale.linear().domain([0,1]).range([80,height - 80]);
 var getRadius = function(d) { return 15; }; // d3.scale.linear().domain([0,1]).range([5,10]);
 var colorize = d3.scale.linear().domain([0,1]).range(["hsl(250, 50%, 50%)", "hsl(350, 100%, 50%)"]).interpolate(d3.interpolateHsl);
 //var y2 = d3.scale.linear().domain([0,1]).range([height * 0.2 - 20, height * 0.8 + 20]);
 var del = d3.scale.linear().domain([0,1]).range([0,1]);
+
+var showUserTweets = function(handle) {
+    var twitterbox = $("#twitter-box");
+    /*
+    var newBox = [
+        '',
+        '<script>',
+        'var height = 600;',
+        'new TWTR.Widget({',
+        '  version: 2,',
+        '  type: "profile",',
+        '  rpp: 10,',
+        '  interval: 30000,',
+        '  width: 250,',
+        '  height: 600,',
+        '  theme: {',
+        '    shell: {',
+        '      background: "#333333",',
+        '      color: "#ffffff"',
+        '    },',
+        '    tweets: {',
+        '      background: "#000000",',
+        '      color: "#ffffff",',
+        '      links: "#6da9d1"',
+        '    }',
+        '  },',
+        '  features: {',
+        '    scrollbar: true,',
+        '    loop: false,',
+        '    live: true,',
+        '    hashtags: true,',
+        '    timestamp: true,',
+        '    avatars: false,',
+        '    behavior: "all"',
+        '  }',
+        '}).render().setUser("' + handle + '").start();',
+        '</script>'
+    ].join('\n');
+    twitterbox.empty();
+    twitterbox.append(newBox);
+    */
+    if(twtr) {
+        twtr
+            .destroy()
+            .setFeatures({
+                scrollbar: true,
+                loop: false,
+                live: true,
+                hashtags: true,
+                timestamp: true,
+                avatars: false,
+                behavior: 'all'
+            })
+            .setDimensions(250, 600)
+            .setRpp(10)
+            .setTweetInterval(30000)
+            .setUser(handle)
+            .render()
+            .start();
+    }
+};
 
 var loadPeepsDom = function() {
     $(".group").click(function(){
@@ -94,10 +155,13 @@ var loadPeepsDom = function() {
         peepDiv.css("left", (width / 2) + "px");
         peepDiv.css("top", (height / 2) + "px");
         peepDiv.attr("id", data.handle);
-        
         peepDiv.append(newPeep);
         canvas.append(peepDiv);
     }
+    $(".peep").click(function(e) {
+        
+        showUserTweets(e.currentTarget.id);
+    });
     setTimeout(function() {
         for(i = 0; i < peeps.length; i++) {
             var data = peeps[i];
@@ -111,56 +175,6 @@ var loadPeepsDom = function() {
             });   
         }
     }, 1000);
-};
-
-var loadPeepsSvg = function() {
-    vis = d3.select("body")
-        .append("svg:svg")
-        .attr("class", "peeps")
-        .attr("width", width)
-        .attr("height", height);
-    
-    connectToApi(function() {
-        vis.selectAll(".peeps")
-            .data(peeps)
-            .append("svg:image")
-            .attr("xlink:href", "https://si0.twimg.com/profile_images/1453831880/profile-pic_normal.jpg") // function(d) { return d.pic; })
-            .attr("width", "30")
-            .attr("height", "30");
-            //.attr("left", function(d) { return getX(d.x); })
-            //.attr("top", function(d) { return getY(d.t); })
-            /*
-            .enter().append("svg:circle")
-            .attr("cx", function(d) { return getX(d.x); })
-            .attr("cy", function(d) { return getY(d.y); })
-            .attr("strike-width", "none")
-            .attr("fill", function() { return colorize(Math.random()); })
-            .attr("fill-opacity", 0.5)
-            .attr("visibility", "visible")
-            .attr("r", function() { return getRadius(Math.random()); });
-            */
-            /*
-            .on("mouseover", function() {
-                d3.select(this).transition()
-                .attr("cx", function() { return getX(Math.random()); })
-                .attr("cy", function() { return getY(Math.random()); })
-                .delay(0)
-                .duration(2000)
-                //.ease("elastic", 0.5, 0.45);
-                .ease("cubic-in-out");
-            });
-            */
-    /*
-    d3.selectAll("circle")
-        .transition()
-        .attr("cx", function() { return getX(Math.random()); })
-        .attr("cy", function() { return getY(Math.random()); })
-        .attr("visibility", "visible")
-        .delay(function(d, i) { return i * del(Math.random()); })
-        .duration(1000)
-        .ease("elastic", 10, 0.45);
-        */
- });
 };
 
 

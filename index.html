@@ -10,33 +10,57 @@
   <script src="less.js" type="text/javascript"></script>
 
 <body style="background-image: url(http://subtlepatterns.com/patterns/black_linen_v2.png); background-attachment: initial; background-origin: initial; background-clip: initial; background-color: initial; background-position: initial initial; background-repeat: initial initial; ">
-    <a href="http://github.com/benblair/sdcchi11"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+    <!-- <a href="http://github.com/benblair/sdcchi11"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a> -->
 
-    <!--
-    <nav>
-        <ul>
-            <li>Social</li>
-            <li>Mobile</li>
-            <li>Foobar</li>
-        </ul>
-    </nav>
-    -->
+    
     
     <div id="peeps"></div>
     
     <div class="group" id="Chicago" style="left: 298px; top: 125px;">
-        <p>Chicago
-        </p>
+        <p>Chicago</p>
     </div>
 
     <div class="group" id="Hack" style="left: 998px; top: 225px;">
-        <p>Hack
-        </p>
+        <p>Hack</p>
     </div>
     
     <div class="group" id="Social" style="left: 498px; top: 325px;">
-        <p>Social
-        </p>
+        <p>Social</p>
+    </div>
+    <script src="http://widgets.twimg.com/j/2/widget.js"></script>
+    <div id="twitter-box">
+        <script>
+        var height = 600;
+        var twtr = new TWTR.Widget({
+          version: 2,
+          type: 'profile',
+          rpp: 10,
+          interval: 30000,
+          width: 250,
+          height: height,
+          theme: {
+            shell: {
+              background: '#333333',
+              color: '#ffffff'
+            },
+            tweets: {
+              background: '#000000',
+              color: '#ffffff',
+              links: '#6da9d1'
+            }
+          },
+          features: {
+            scrollbar: true,
+            loop: false,
+            live: true,
+            hashtags: true,
+            timestamp: true,
+            avatars: false,
+            behavior: 'all'
+          }
+        }).render().setUser('stochastic_code');
+        twtr.start();
+        </script>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js" type="text/javascript"></script>
