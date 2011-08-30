@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using Bbr.Extensions;
+using GraphSharp.Algorithms.Layout.Simple.FDP;
 using QuickGraph;
 using GraphSharp;
 using Bbr.Collections;
@@ -10,16 +11,39 @@ using GraphSharp.Algorithms.Layout;
 
 namespace Cerrio.Samples.SDC
 {
-    class GraphSharp<TGraphItem> 
-        where TGraphItem:class,IPosititonable
+    class GraphSharp<TGraphItem>
+        where TGraphItem : class, IPosititonable
     {
         //CircularLayoutAlgorithm<TGraphItem, GraphEdge, BidirectionalGraph<TGraphItem, GraphEdge>> m_algo;
-        BidirectionalGraph<TGraphItem,GraphEdge> m_graph;
+        BidirectionalGraph<TGraphItem, GraphEdge> m_graph;
         StandardLayoutAlgorithmFactory<TGraphItem, GraphEdge, BidirectionalGraph<TGraphItem, GraphEdge>> m_factory;
 
-        public GraphSharp(IEnumerable<TGraphItem> items,IEnumerable<Pair<TGraphItem,TGraphItem>> edges)
+        private Dictionary<string, ILayoutParameters> m_layoutParameters = new Dictionary<string, ILayoutParameters>
         {
-            m_graph = GraphHelper.CreateGraph(items,edges,p=>new GraphEdge(p.First,p.Second));
+            {"KK", new KKLayoutParameters
+               {
+                   Height=1,
+                   Width=1,
+               }
+            },
+            {"LinLog", new LinLogLayoutParameters
+               {
+                   AttractionExponent=1,
+                   RepulsiveExponent=1
+               }
+            },
+            {"BoundedFR", new BoundedFRLayoutParameters
+                              {
+                   Width=1,
+                   Height=1
+               }
+            }
+    
+        };
+
+        public GraphSharp(IEnumerable<TGraphItem> items, IEnumerable<Pair<TGraphItem, TGraphItem>> edges)
+        {
+            m_graph = GraphHelper.CreateGraph(items, edges, p => new GraphEdge(p.First, p.Second));
             m_factory = new StandardLayoutAlgorithmFactory<TGraphItem, GraphEdge, BidirectionalGraph<TGraphItem, GraphEdge>>();
         }
 
@@ -35,13 +59,25 @@ namespace Cerrio.Samples.SDC
 
         public IEnumerable<TGraphItem> Layout(string type)
         {
-            var algo = m_factory.CreateAlgorithm(type, new MyLayoutContext(m_graph), null);
-            
-            if(!algo.VertexPositions.Any())
+            ILayoutParameters parameters;
+
+            if(m_layoutParameters.ContainsKey(type))
+            {
+                parameters = m_layoutParameters[type];
+            }
+            else
+            {
+                parameters = m_factory.CreateParameters(type, null);
+            }
+
+
+            var algo = m_factory.CreateAlgorithm(type, new MyLayoutContext(m_graph), parameters);
+
+            if (!algo.VertexPositions.Any())
             {
                 return new List<TGraphItem>();
             }
-            
+
             algo.Compute();
 
             double maxX = algo.VertexPositions.Values.Max(m => m.X);
@@ -49,11 +85,14 @@ namespace Cerrio.Samples.SDC
             double maxY = algo.VertexPositions.Values.Max(m => m.Y);
             double minY = algo.VertexPositions.Values.Min(m => m.Y);
 
-            foreach (TGraphItem item in algo.VertexPositions.Keys)
+            if (maxX > 1 || maxY > 1 || minY < 0 || minX < 0)
             {
-                Point pp = algo.VertexPositions[item];
-                item.X = (pp.X - minX) / (maxX - minX);
-                item.Y = (pp.Y - minY) / (maxY - minY);
+                foreach (TGraphItem item in algo.VertexPositions.Keys)
+                {
+                    Point pp = algo.VertexPositions[item];
+                    item.X = (pp.X - minX)/(maxX - minX);
+                    item.Y = (pp.Y - minY)/(maxY - minY);
+                }
             }
 
             return algo.VertexPositions.Keys;
@@ -93,7 +132,7 @@ namespace Cerrio.Samples.SDC
                 get
                 {
                     Dictionary<TGraphItem, Point> positions = new Dictionary<TGraphItem, Point>();
-                    Graph.Vertices.ForEach(v => positions.Add(v, new Point(v.X,v.Y)));
+                    Graph.Vertices.ForEach(v => positions.Add(v, new Point(v.X, v.Y)));
                     return positions;
                 }
             }
@@ -110,5 +149,5 @@ namespace Cerrio.Samples.SDC
         }
     }
 
-    
+
 }

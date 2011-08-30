@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Bbr.Collections;
+using Bbr.Diagnostics;
 using Bbr.Extensions;
 using Bbr.Zaphod;
 using Cerrio.Samples.Helpers;
@@ -15,6 +15,7 @@ namespace Cerrio.Samples.SDC
         public string RequestingUser { get; private set;}
 
         private static string s_catchAll = "Other";
+        private object m_lockObject = new object();
 
         public PerUserGrouper(Pig<OutputData, string> outputPig,string requestingUser)
         {
@@ -24,98 +25,95 @@ namespace Cerrio.Samples.SDC
 
         public void DoAnalysis(IEnumerable<InputData> inputData)
         {
-            Dictionary<string, UserTweetData> data = new Dictionary<string, UserTweetData>();
-            foreach (InputData inputLine in inputData)
+            lock (m_lockObject)
             {
-                data.Add(inputLine.User, new UserTweetData
+                Dictionary<string, UserTweetData> data = new Dictionary<string, UserTweetData>();
+                foreach (InputData inputLine in inputData)
                 {
-                    UserName = inputLine.User,
-                    Corpus = inputLine.Text.ToLowerInvariant()
-                });
-            }
-            IEnumerable<WordResults> stds = GetGroupingWords(data.Values);
-            stds = stds.OrderByDescending(r => r.StandardDeviation).ToList();
-            stds.ForEach(r => Console.WriteLine("{0}: {1}: {2:0.00} {3:0.00}", r.Word, r.Occurrences, r.StandardDeviation, r.StandardDeviationScaled));
-
-            IEnumerable<WordResults> tops = stds.Take(Math.Min(5, stds.Count()));
-
-            List<UserTweetData> items = AddConnections(data, tops);
-            items = ThirdParty(items, "KK").ToList();
-            //items = ThirdParty(items, "ISOM").ToList();//ok looks liek bigger groups
-            //items = ThirdParty(items, "EfficientSugiyama").ToList();//ok but slow as balls
-            //items = ThirdParty(items, "CompoundFDP").ToList();
-
-            Dictionary<KMeans<UserTweetData>.Cluster, string> clusters = TestClusters(items, tops);
-
-            Dictionary<string, OutputData> results = new Dictionary<string, OutputData>();
-
-            foreach (KMeans<UserTweetData>.Cluster cluster in clusters.Keys)
-            {
-                string label = clusters[cluster];
-                Console.WriteLine("Got label: " + label);
-                //double scale = Math.Sqrt(.5)*();
-                double scale = 1.5 * cluster.Items.Count() / items.Count;
-                foreach (UserTweetData item in ThirdParty(cluster.Items, "Circular"))
-                {
-                    item.X = ((item.X -.5) * scale) + cluster.Mean.X;
-                    item.Y = ((item.Y -.5) * scale) + cluster.Mean.Y;
-                    OutputData output = ConverterToOutPut(item, label, cluster.Mean);
-                    results.Add(output.Key, output);
+                    data[inputLine.User] = new UserTweetData
+                                               {
+                                                   UserName = inputLine.User,
+                                                   Corpus = inputLine.Text.ToLowerInvariant()
+                                               };
                 }
+                Dictionary<string, WordResults> wordCounts = GetGroupingWords(data.Values);
+
+                int connections = AddConnections(data, wordCounts);
+  
+
+                EventLog.Log("added {0} connections for {1} users",connections,data.Count);
+                List<UserTweetData> items = data.Values.ToList();
+                items = ThirdParty(items, "LinLog").ToList();
+                //items = ThirdParty(items, "Circular").ToList();
+                //items = ThirdParty(items, "BoundedFR").ToList();
+                //items = ThirdParty(items, "KK").ToList();
+                //items = ThirdParty(items, "ISOM").ToList();//ok looks liek bigger groups
+                //items = ThirdParty(items, "EfficientSugiyama").ToList();//ok but slow as balls
+                //items = ThirdParty(items, "CompoundFDP").ToList();
+
+                Dictionary<KMeans<UserTweetData>.Cluster, string> clusters = TestClusters(items, wordCounts);
+
+                Dictionary<string, OutputData> results = new Dictionary<string, OutputData>();
+
+                foreach (KMeans<UserTweetData>.Cluster cluster in clusters.Keys)
+                {
+                    string label = clusters[cluster];
+                    EventLog.Log(Severity.Medium,"Got label: " + label + " for user: " + RequestingUser);
+                    //double scale = Math.Sqrt(.5)*();
+
+                    foreach (UserTweetData item in cluster.Items)
+                    {
+                        OutputData output = ConverterToOutPut(item, label, cluster.Mean);
+                        results.Add(output.Key, output);
+                    }
+                }
+
+                EventLog.Log("done " + RequestingUser);
+
+                m_ouptutPig.Republish(results, item => item.OriginatingUser == RequestingUser,
+                                      m_ouptutPig.GetUpdateToken("X", "Y", "GroupName", "GroupCenterX", "GroupCenterY"));
             }
-
-            Console.WriteLine("done");
-
-            m_ouptutPig.Republish(results, item => item.OriginatingUser == RequestingUser, m_ouptutPig.GetUpdateToken("X", "Y", "GroupName","GroupCenterX","GroupCenterY"));
         }
 
-        private Dictionary<KMeans<UserTweetData>.Cluster, string> TestClusters(List<UserTweetData> items, IEnumerable<WordResults> tops)
+        private Dictionary<KMeans<UserTweetData>.Cluster, string> TestClusters(IList<UserTweetData> items, Dictionary<string, WordResults> wordCounts)
         {
-            for (int i = 1; i < items.Count / 2+1; i++)
+            int i = (int)Math.Round(Math.Sqrt(items.Count/2.0));
+            //for (int i = 1; i < items.Count / 2+1; i++)
             {
                 Dictionary<KMeans<UserTweetData>.Cluster, string> possibleResult = new Dictionary<KMeans<UserTweetData>.Cluster, string>();
                 HashSet<string> labels = new HashSet<string>();
-                List<KMeans<UserTweetData>.Cluster> clusters = Cluster(items, i);
+                List<KMeans<UserTweetData>.Cluster> clusters = Cluster(items, Math.Min(i,items.Count));
                 foreach (KMeans<UserTweetData>.Cluster cluster in clusters)
                 {
-                    string label = GetLabel(cluster.Items, tops, labels);
+                    string label = GetLabel(cluster.Items, labels, wordCounts);
                     labels.Add(label);
                     possibleResult.Add(cluster, label);
                 }
 
-                if (clusters.Any(c => c.Items.Count() <= 1)
-                    || labels.Contains(s_catchAll))
-                {
-                    return possibleResult;
-                }
+                return possibleResult;
             }
 
-            throw new Exception("What the hecko, this should never happen, no suitabl number of groups were found");
+            //throw new Exception("What the hecko, this should never happen, no suitable number of groups were found for user "+RequestingUser+"");
         }
 
-        private string GetLabel(IEnumerable<UserTweetData> data, IEnumerable<WordResults> results, HashSet<string> usedLabel)
+        private string GetLabel(IEnumerable<UserTweetData> data, ICollection<string> usedLabel,Dictionary<string, WordResults> wordCounts)
         {
             Dictionary<string, double> counts = new Dictionary<string, double>();
 
-            foreach (WordResults result in results)
+            foreach (UserTweetData d in data)
             {
-                if (usedLabel.Contains(result.Word))
+                foreach (string word in d.WordCount.Keys)
                 {
-                    continue;
-                }
-                double cutOff = result.Average;
-                foreach (UserTweetData d in data)
-                {
-                    if (d.Probability(result.Word) > cutOff)
+                    if (!usedLabel.Contains(word))
                     {
-                        double ammount = d.Probability(result.Word) - cutOff;
-                        if (!counts.ContainsKey(result.Word))
+                        double score = ScoreWord(word, d, wordCounts.GetValueOrDefault(word));
+                        if(!counts.ContainsKey(word))
                         {
-                            counts[result.Word] = ammount;
+                            counts[word] = score;
                         }
                         else
                         {
-                            counts[result.Word] += ammount;
+                            counts[word] += score;
                         }
                     }
                 }
@@ -126,57 +124,93 @@ namespace Cerrio.Samples.SDC
                 return s_catchAll;
             }
 
-            return counts.Keys.MaxElement(k => counts[k]);
+            string result= counts.Keys.MaxElement(k => counts[k]);
+            return result;
         }
 
-        private List<UserTweetData> AddConnections(Dictionary<string, UserTweetData> data, IEnumerable<WordResults> tops)
+
+        //the more words in common 2 users have the higher thier similarity
+        //  get extra points for legnth of word
+        //  get extra points for raratiy of word in overall corpus
+
+        private int AddConnections(Dictionary<string, UserTweetData> data, Dictionary<string, WordResults> wordCounts)
         {
-            foreach (UserTweetData i1 in data.Values)
+            List<UserTweetData> items = data.Values.ToList();
+            double[][] values = new double[items.Count][];
+            List<Pair<double, Pair<int, int>>> counts = new List<Pair<double, Pair<int, int>>>();
+            int links=0;
+
+            for (int i = 0; i < items.Count; i++)
             {
-                foreach (UserTweetData i2 in data.Values)
+                values[i] = new double[items.Count];
+                for (int j = i+1; j < items.Count; j++)
                 {
-                    if (i1 != i2)
+                    double count = 0;
+                    foreach(string word in items[i].WordProbibility.Keys)
                     {
-                        foreach (WordResults wordResult in tops)
+                        if (word.Length > 3)
                         {
-
-                            double cutHigh = wordResult.Average + wordResult.StandardDeviation * .5;
-                            double p1 = i1.Probability(wordResult.Word);
-                            double p2 = i2.Probability(wordResult.Word);
-
-                            if (p1 > cutHigh && p2 > cutHigh)
-                            {
-                                Console.WriteLine("Adding connection from {0} to {1}", i1.UserName, i2.UserName);
-                                i1.AddDependency(i2);
-                            }
+                            WordResults wordresult = wordCounts.GetValueOrDefault(word);
+                            count += Math.Min(
+                                ScoreWord(word, items[i], wordresult),
+                                ScoreWord(word, items[j], wordresult));
                         }
+                    }
+                    values[i][j] = count;
+                    if (count != 0)
+                    {
+                        counts.Add(new Pair<double, Pair<int, int>>(count, new Pair<int, int>(i, j)));
                     }
                 }
             }
 
-            return data.Values.ToList();
+            counts.Sort((p1, p2) => p1.First.CompareTo(p2.First));
+
+            /*EventLog.Log("there are {0} possible counts", counts.Count);
+            double desiredConnections = data.Count*Math.Max(2,data.Count/10.0);
+
+            for(int i=0;i<desiredConnections&&i<counts.Count;i++)
+            {
+                Pair<int, int> point = counts[i].Second;
+                items[point.First].AddDependency(items[point.Second]);
+                items[point.Second].AddDependency(items[point.First]);
+                links += 2;
+            }*/
+
+            double avg = counts.Average(p=>p.First);
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                for (int j = i+1; j < items.Count; j++)
+                {
+                    if(values[i][j]>avg)
+                    {
+                        items[i].AddDependency(items[j]);
+                        items[j].AddDependency(items[i]);
+                        links += 2;
+                    }
+                }
+            }
+
+            return links;
         }
 
-        private List<KMeans<UserTweetData>.Cluster> Cluster(List<UserTweetData> data, int k)
+        private double ScoreWord(string word, UserTweetData user,WordResults result)
+        {
+            return word.Length/10.0
+                *1/(null==result?1:result.Probability)
+                *user.Probability(word);
+        }
+
+        private List<KMeans<UserTweetData>.Cluster> Cluster(IList<UserTweetData> data, int k)
         {
             KMeans<UserTweetData> kMeans = new KMeans<UserTweetData>(
                 (u1, u2) => u1.Distance(u2),
-                list =>
-                {
-                    double x;
-                    double y;
-                    if (list.Count() > 1)
-                    {
-                        x = list.Average(u => u.X);
-                        y = list.Average(u => u.Y);
-                    }
-                    else
-                    {
-                        x = list.First().X;
-                        y = list.First().Y;
-                    }
-                    return new UserTweetData { X = x, Y = y, };
-                });
+                list => new UserTweetData
+                            {
+                                X = list.Average(u => u.X),
+                                Y = list.Average(u => u.Y),
+                            });
 
             return kMeans.CreateCluster(k, data);
         }
@@ -197,12 +231,10 @@ namespace Cerrio.Samples.SDC
             return outputData;
         }
 
-        private IEnumerable<WordResults> GetGroupingWords(IEnumerable<UserTweetData> data)
+        private Dictionary<string, WordResults> GetGroupingWords(IEnumerable<UserTweetData> data)
         {
             WordGrouper grouper = new WordGrouper();
-            IEnumerable<WordResults> resuls = grouper.GetWords(data);
-
-            return resuls.Where(r => r.Occurrences > 3 && r.StandardDeviation > 0);
+            return grouper.GetWords(data);
         }
 
         private IEnumerable<UserTweetData> ThirdParty(IEnumerable<UserTweetData> items, string type)

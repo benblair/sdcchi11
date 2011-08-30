@@ -1,4 +1,5 @@
 ﻿using System;
+using Bbr.Diagnostics;
 using Bbr.Pigskin.Interfaces;
 using Bbr.Zaphod;
 
@@ -36,6 +37,8 @@ namespace Cerrio.Samples.SDC
 
         public void HandlePig<TValue, TKey>(Pig<TValue, TKey> pig)
         {
+            EventLog.Log("Got pig:"+pig);
+            pig.Disconnected += (ignored1, ignored2) => EventLog.Log(pig + "disconnected");
             if (pig.PigConfig.Uri == m_inputUri)
             {
                 m_inputPig = (Pig<InputData, string>)(object)pig;
@@ -47,7 +50,7 @@ namespace Cerrio.Samples.SDC
                                            };
                 m_inputPig.ModifyAction = (m, token) => m_reLayoutQueuer.Modify(m);
                 m_inputPig.DeleteAction = d => m_reLayoutQueuer.Delete(d);
-                m_inputPig.Subscribe("1=1");
+                m_inputPig.Subscribe("top(20) and 1=1");//HACK
             }
             else if (pig.PigConfig.Uri == m_outputUri)
             {

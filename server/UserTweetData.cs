@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Web;
+using Bbr.Diagnostics;
 
 namespace Cerrio.Samples.SDC
 {
@@ -28,12 +31,23 @@ namespace Cerrio.Samples.SDC
                 WordCount.Clear();
                 WordProbibility.Clear();
 
-                string[] words = m_corpus.ToLowerInvariant().Split(
-                    new[] { ' ', '.', ',', '!', '?', ':', ';', '@', '/', '#', '\'' }, StringSplitOptions.RemoveEmptyEntries)
+                //remove @ refrences as we don't want to count those as words
+                string decoded = HttpUtility.HtmlDecode(m_corpus);
+                string corbusWithoutAts = Regex.Replace(decoded, "@[\\w_]+", "");
+                List<string> links = new List<string>();
+                Func<Match, string> htmlGrabber = s =>
+                                                       {
+                                                           links.Add(s.Value);
+                                                           return "";
+                                                       };
+                string corbusWithoutLinks=Regex.Replace(corbusWithoutAts, @"http:[/|\]{2}[\w|/|\|\.]+", new MatchEvaluator(htmlGrabber),RegexOptions.IgnoreCase);
+
+                string[] words = corbusWithoutLinks.ToLowerInvariant().Split(
+                    new[] { ' ', '.', ',', '!', '?', ':', ';', '@', '/', '#', '\'','\"' }, StringSplitOptions.RemoveEmptyEntries)
                     .Where(word => word.Length > 3)
                     .ToArray();
 
-                foreach (string word in words)
+                foreach (string word in words.Union(links))
                 {
                     if (!WordCount.ContainsKey(word))
                     {

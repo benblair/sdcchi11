@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Bbr.Diagnostics;
 using Bbr.Extensions;
@@ -46,7 +47,10 @@ namespace Cerrio.Samples.SDC
                 m_groupers[data.RequestingUser] = new PerUserGrouper(m_outputPig,data.RequestingUser);
             }
 
-            m_data[data.RequestingUser].Add(data);
+            lock (m_lockObject)
+            {
+                m_data[data.RequestingUser].Add(data);
+            }
 
             if(m_loaded)
             {
@@ -66,7 +70,10 @@ namespace Cerrio.Samples.SDC
         {
             if(m_data.ContainsKey(data.RequestingUser))
             {
-                m_data[data.RequestingUser].Remove(data);
+                lock (m_lockObject)
+                {
+                    m_data[data.RequestingUser].Remove(data);
+                }
             }
         }
 
@@ -101,7 +108,15 @@ namespace Cerrio.Samples.SDC
                     m_states[user] = State.Running;
                 }
 
-                m_groupers[user].DoAnalysis(m_data[user]);
+                EventLog.Log("relaying out: "+user);
+                List<InputData> data;
+
+                lock(m_lockObject)
+                {
+                    data = m_data[user].ToList();
+                }
+
+                m_groupers[user].DoAnalysis(data);
 
                 bool start = false;
                 lock(m_lockObject)
