@@ -12,15 +12,31 @@ namespace Cerrio.Samples.SDC
     class PerUserGrouper
     {
         private Pig<OutputData, string> m_ouptutPig;
-        public string RequestingUser { get; private set;}
+        public string RequestingUser { get; private set; }
 
         private static string s_catchAll = "Other";
         private object m_lockObject = new object();
 
-        public PerUserGrouper(Pig<OutputData, string> outputPig,string requestingUser)
+        private Dictionary<string, OutputData> m_lastResults = new Dictionary<string, OutputData>();
+
+        public PerUserGrouper(Pig<OutputData, string> outputPig, string requestingUser)
         {
             m_ouptutPig = outputPig;
             RequestingUser = requestingUser;
+
+
+            try
+            {
+                m_ouptutPig.Tree.Root
+                    .Where<OutputData>(i => i.OriginatingUser == RequestingUser)
+                    .ForEach(i => m_lastResults.Add(i.TwitterHandle, i));
+                bool.Parse("true");
+
+            }
+            catch (Exception)
+            {
+                //oh well it was worth a try
+            }
         }
 
         public void DoAnalysis(IEnumerable<InputData> inputData)
@@ -28,6 +44,7 @@ namespace Cerrio.Samples.SDC
             lock (m_lockObject)
             {
                 Dictionary<string, UserTweetData> data = new Dictionary<string, UserTweetData>();
+
                 foreach (InputData inputLine in inputData)
                 {
                     data[inputLine.User] = new UserTweetData
@@ -36,20 +53,31 @@ namespace Cerrio.Samples.SDC
                                                    Corpus = inputLine.Text.ToLowerInvariant()
                                                };
                 }
+
+
+                if (null != m_lastResults)
+                {
+                    m_lastResults.ForEach(i =>
+                            {
+                                if (data.ContainsKey(i.Key))
+                                {
+                                    data[i.Key].X = i.Value.X;
+                                    data[i.Key].Y = i.Value.Y;
+                                }
+                            });
+                }
+
                 Dictionary<string, WordResults> wordCounts = GetGroupingWords(data.Values);
 
                 int connections = AddConnections(data, wordCounts);
-  
 
-                EventLog.Log("added {0} connections for {1} users",connections,data.Count);
+
+                EventLog.Log("added {0} connections for {1} users", connections, data.Count);
                 List<UserTweetData> items = data.Values.ToList();
-                items = ThirdParty(items, "LinLog").ToList();
-                //items = ThirdParty(items, "Circular").ToList();
-                //items = ThirdParty(items, "BoundedFR").ToList();
-                //items = ThirdParty(items, "KK").ToList();
-                //items = ThirdParty(items, "ISOM").ToList();//ok looks liek bigger groups
-                //items = ThirdParty(items, "EfficientSugiyama").ToList();//ok but slow as balls
-                //items = ThirdParty(items, "CompoundFDP").ToList();
+                //items = ThirdParty(items, "LinLog").ToList(); //shows very little layout persistance
+
+                ForceDirectedLayout layout = new ForceDirectedLayout(1, 1);
+                layout.Layout(items.As<UserTweetData, IPosititonable>());
 
                 Dictionary<KMeans<UserTweetData>.Cluster, string> clusters = TestClusters(items, wordCounts);
 
@@ -58,8 +86,7 @@ namespace Cerrio.Samples.SDC
                 foreach (KMeans<UserTweetData>.Cluster cluster in clusters.Keys)
                 {
                     string label = clusters[cluster];
-                    EventLog.Log(Severity.Medium,"Got label: " + label + " for user: " + RequestingUser);
-                    //double scale = Math.Sqrt(.5)*();
+                    EventLog.Log(Severity.Medium, "Got label: " + label + " for user: " + RequestingUser);
 
                     foreach (UserTweetData item in cluster.Items)
                     {
@@ -70,33 +97,37 @@ namespace Cerrio.Samples.SDC
 
                 EventLog.Log("done " + RequestingUser);
 
-                m_ouptutPig.Republish(results, item => item.OriginatingUser == RequestingUser,
-                                      m_ouptutPig.GetUpdateToken("X", "Y", "GroupName", "GroupCenterX", "GroupCenterY"));
+                if (null != m_ouptutPig)
+                {
+                    m_lastResults = results;
+                    m_ouptutPig.Republish(results, item => item.OriginatingUser == RequestingUser,
+                                          m_ouptutPig.GetUpdateToken("X", "Y", "GroupName", "GroupCenterX",
+                                                                     "GroupCenterY"));
+                }
             }
         }
 
         private Dictionary<KMeans<UserTweetData>.Cluster, string> TestClusters(IList<UserTweetData> items, Dictionary<string, WordResults> wordCounts)
         {
-            int i = (int)Math.Round(Math.Sqrt(items.Count/2.0));
-            //for (int i = 1; i < items.Count / 2+1; i++)
-            {
-                Dictionary<KMeans<UserTweetData>.Cluster, string> possibleResult = new Dictionary<KMeans<UserTweetData>.Cluster, string>();
-                HashSet<string> labels = new HashSet<string>();
-                List<KMeans<UserTweetData>.Cluster> clusters = Cluster(items, Math.Min(i,items.Count));
-                foreach (KMeans<UserTweetData>.Cluster cluster in clusters)
-                {
-                    string label = GetLabel(cluster.Items, labels, wordCounts);
-                    labels.Add(label);
-                    possibleResult.Add(cluster, label);
-                }
+            //from http://en.wikipedia.org/wiki/Determining_the_number_of_clusters_in_a_data_set
+            //this is a rule of thumb for =icking K
+            int i = (int)Math.Round(Math.Sqrt(items.Count / 2.0));
 
-                return possibleResult;
+            Dictionary<KMeans<UserTweetData>.Cluster, string> possibleResult = new Dictionary<KMeans<UserTweetData>.Cluster, string>();
+            HashSet<string> labels = new HashSet<string>();
+            List<KMeans<UserTweetData>.Cluster> clusters = Cluster(items, Math.Min(i, items.Count));
+            foreach (KMeans<UserTweetData>.Cluster cluster in clusters)
+            {
+                string label = GetLabel(cluster.Items, labels, wordCounts);
+                labels.Add(label);
+                possibleResult.Add(cluster, label);
             }
 
-            //throw new Exception("What the hecko, this should never happen, no suitable number of groups were found for user "+RequestingUser+"");
+            return possibleResult;
+
         }
 
-        private string GetLabel(IEnumerable<UserTweetData> data, ICollection<string> usedLabel,Dictionary<string, WordResults> wordCounts)
+        private string GetLabel(IEnumerable<UserTweetData> data, ICollection<string> usedLabel, Dictionary<string, WordResults> wordCounts)
         {
             Dictionary<string, double> counts = new Dictionary<string, double>();
 
@@ -107,7 +138,7 @@ namespace Cerrio.Samples.SDC
                     if (!usedLabel.Contains(word))
                     {
                         double score = ScoreWord(word, d, wordCounts.GetValueOrDefault(word));
-                        if(!counts.ContainsKey(word))
+                        if (!counts.ContainsKey(word))
                         {
                             counts[word] = score;
                         }
@@ -124,29 +155,24 @@ namespace Cerrio.Samples.SDC
                 return s_catchAll;
             }
 
-            string result= counts.Keys.MaxElement(k => counts[k]);
+            string result = counts.Keys.MaxElement(k => counts[k]);
             return result;
         }
-
-
-        //the more words in common 2 users have the higher thier similarity
-        //  get extra points for legnth of word
-        //  get extra points for raratiy of word in overall corpus
 
         private int AddConnections(Dictionary<string, UserTweetData> data, Dictionary<string, WordResults> wordCounts)
         {
             List<UserTweetData> items = data.Values.ToList();
             double[][] values = new double[items.Count][];
             List<Pair<double, Pair<int, int>>> counts = new List<Pair<double, Pair<int, int>>>();
-            int links=0;
+            int links = 0;
 
             for (int i = 0; i < items.Count; i++)
             {
                 values[i] = new double[items.Count];
-                for (int j = i+1; j < items.Count; j++)
+                for (int j = i + 1; j < items.Count; j++)
                 {
                     double count = 0;
-                    foreach(string word in items[i].WordProbibility.Keys)
+                    foreach (string word in items[i].WordProbibility.Keys)
                     {
                         if (word.Length > 3)
                         {
@@ -166,24 +192,14 @@ namespace Cerrio.Samples.SDC
 
             counts.Sort((p1, p2) => p1.First.CompareTo(p2.First));
 
-            /*EventLog.Log("there are {0} possible counts", counts.Count);
-            double desiredConnections = data.Count*Math.Max(2,data.Count/10.0);
 
-            for(int i=0;i<desiredConnections&&i<counts.Count;i++)
-            {
-                Pair<int, int> point = counts[i].Second;
-                items[point.First].AddDependency(items[point.Second]);
-                items[point.Second].AddDependency(items[point.First]);
-                links += 2;
-            }*/
-
-            double avg = counts.Average(p=>p.First);
+            double avg = counts.Average(p => p.First);
 
             for (int i = 0; i < items.Count; i++)
             {
-                for (int j = i+1; j < items.Count; j++)
+                for (int j = i + 1; j < items.Count; j++)
                 {
-                    if(values[i][j]>avg)
+                    if (values[i][j] > avg)
                     {
                         items[i].AddDependency(items[j]);
                         items[j].AddDependency(items[i]);
@@ -192,14 +208,34 @@ namespace Cerrio.Samples.SDC
                 }
             }
 
+            if (!data.ContainsKey(""))
+            {
+                UserTweetData center = new UserTweetData
+                {
+                    UserName = "",
+                };
+
+                foreach(UserTweetData user in data.Values)
+                {
+                    user.AddDependency(center);
+                    center.AddDependency(user);
+                }
+
+                data.Add("",center);
+
+            }
+
             return links;
         }
 
-        private double ScoreWord(string word, UserTweetData user,WordResults result)
+        ///the more words in common 2 users have the higher thier similarity
+        ///  get extra points for length of word
+        ///  get extra points for rarity of word in overall corpus
+        private double ScoreWord(string word, UserTweetData user, WordResults result)
         {
-            return word.Length/10.0
-                *1/(null==result?1:result.Probability)
-                *user.Probability(word);
+            return word.Length / 10.0
+                * 1 / (null == result ? 1 : result.Probability)
+                * user.Probability(word);
         }
 
         private List<KMeans<UserTweetData>.Cluster> Cluster(IList<UserTweetData> data, int k)
@@ -242,9 +278,10 @@ namespace Cerrio.Samples.SDC
             List<Pair<UserTweetData, UserTweetData>> edges = new List<Pair<UserTweetData, UserTweetData>>();
             items.ForEach(i => i.Dependencies.ForEach(d =>
             {
-                if (items.Contains(d))
+                UserTweetData user = (UserTweetData) d;
+                if (items.Contains(user))
                 {
-                    edges.Add(new Pair<UserTweetData, UserTweetData>(i, d));
+                    edges.Add(new Pair<UserTweetData, UserTweetData>(i, user));
                 }
 
             }));

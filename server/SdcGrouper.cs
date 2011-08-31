@@ -45,7 +45,6 @@ namespace Cerrio.Samples.SDC
                 m_inputPig.SubscriptionEndLoad += (ignored1, ignored2) => m_reLayoutQueuer.Loaded();
                 m_inputPig.AddAction = a =>
                                            {
-                                               //a.RequestingUser = "35906df2-a74b-43c1-9bbb-bf599d310b69";//HACK
                                                m_reLayoutQueuer.Add(a);
                                            };
                 m_inputPig.ModifyAction = (m, token) => m_reLayoutQueuer.Modify(m);
@@ -55,7 +54,7 @@ namespace Cerrio.Samples.SDC
             else if (pig.PigConfig.Uri == m_outputUri)
             {
                 m_ouptutPig = (Pig<OutputData, string>)(object)pig;
-                m_reLayoutQueuer.AddOuputHog(m_ouptutPig);
+                m_ouptutPig.SubscriptionEndLoad+=(ignored1,ignored2)=>m_reLayoutQueuer.AddOuputHog(m_ouptutPig);
                 m_ouptutPig.Subscribe("1=1");
             }
         }

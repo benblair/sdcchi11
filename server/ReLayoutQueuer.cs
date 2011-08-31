@@ -27,6 +27,7 @@ namespace Cerrio.Samples.SDC
                 bool start = m_loaded && !m_groupers.ContainsKey(user);
 
                 m_groupers[user] = new PerUserGrouper(outputPig,user);
+                m_states[user] = State.Good;//force this next call to do a re-layout
 
                 if (start)
                 {

@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Drawing;
-using Bbr.Collections;
 
 namespace Cerrio.Samples.SDC
 {
@@ -15,10 +12,10 @@ namespace Cerrio.Samples.SDC
         private int m_maxSteps = 200;
         private double m_c = 2;
         private double m_temperature;
-        private IEnumerable<Item> m_items;
+        private IEnumerable<IPosititonable> m_items;
         private double m_minimumDistance;
 
-        private Dictionary<Item, Vector> m_forces;
+        private Dictionary<IPosititonable, Vector> m_forces;
         private Random m_random = new Random();
 
 
@@ -28,19 +25,24 @@ namespace Cerrio.Samples.SDC
             m_height = height;
         }
 
-        public void RandomLayout(IEnumerable<Item> items)
+        public void RandomLayout(IEnumerable<IPosititonable> items)
         {
-            foreach (Item item in items)
+            foreach (IPosititonable item in items)
             {
                 item.X = m_random.NextDouble();
                 item.Y = m_random.NextDouble();
             }
         }
 
-        public void Layout(IEnumerable<Item> items)
+        public void Layout(IEnumerable<IPosititonable> items)
         {
+            if(items.Any(i=>double.IsNaN(i.X)||double.IsNaN(i.Y)))
+            {
+                throw new Exception("All input values must have a valid X,Y coordinate");
+            }
+
             m_items = items;
-            m_forces = new Dictionary<Item, Vector>();
+            m_forces = new Dictionary<IPosititonable, Vector>();
 
             double distance = Math.Sqrt(m_width * m_width + m_height * m_height);
             m_minimumDistance = distance / 100;
@@ -51,8 +53,24 @@ namespace Cerrio.Samples.SDC
             {
                 CalculateRepulsiveForces();
                 CalculateAttractiveForce();
+
                 DisplaceNodes();
+
                 ReduceTemperature();
+            }
+
+            int itterations = 5;
+            bool workDone;
+            do
+            {
+                itterations--;
+                workDone = SpaceNodes();
+                BringPointsInBounds();
+            } while (workDone && itterations >0);
+
+            if (items.Any(it => double.IsNaN(it.X) || double.IsNaN(it.Y)))
+            {
+                throw new Exception("layout screwed something up");
             }
         }
 
@@ -74,12 +92,12 @@ namespace Cerrio.Samples.SDC
 
         private void CalculateAttractiveForce()
         {
-            foreach (Item start in m_items)
+            foreach (IPosititonable start in m_items)
             {
-                foreach (Item end in start.Dependencies)
+                foreach (IPosititonable end in start.Dependencies)
                 {
-                    var delta = new Vector(start.X - end.X, start.Y - end.Y); ;
-                    if (delta.Length > m_minimumDistance)
+                    var delta = new Vector(start.X - end.X, start.Y - end.Y);
+                    if (delta.Length !=0)
                     {
                         m_forces[start] -= delta / (float)delta.Length * AttractiveForce(delta.Length);
                         m_forces[end] += delta / (float)delta.Length * AttractiveForce(delta.Length);
@@ -90,26 +108,25 @@ namespace Cerrio.Samples.SDC
 
         private void CalculateRepulsiveForces()
         {
-            foreach (Item item1 in m_items)
+            foreach (IPosititonable item1 in m_items)
             {
                 if (!m_forces.ContainsKey(item1))
                 {
                     m_forces.Add(item1, new Vector(0,0));
                 }
 
-                foreach (Item item2 in m_items)
+                foreach (IPosititonable item2 in m_items)
                 {
                     if (item1 != item2)
                     {
-                        if (item1.Distance(item2) < m_minimumDistance)
+                        Vector delta = new Vector(item1.X - item2.X, item1.Y - item2.Y);
+
+                        if(delta.Length==0)
                         {
-                            m_forces[item1] += new Vector(m_minimumDistance, m_minimumDistance);
+                            delta = Vector.RandomVector();
                         }
-                        else
-                        {
-                            Vector delta = new Vector(item1.X - item2.X, item1.Y - item2.Y);
-                            m_forces[item1] += delta / (float)delta.Length * RepulsiveForce(delta.Length);
-                        }
+
+                        m_forces[item1] += delta / (float)delta.Length * RepulsiveForce(delta.Length);
                     }
                 }
             }
@@ -118,98 +135,62 @@ namespace Cerrio.Samples.SDC
 
         private void DisplaceNodes()
         {
-            foreach (Item item in m_items)
+            foreach (IPosititonable item in m_items)
             {
                 Vector forceTemp = m_forces[item] / (float)m_forces[item].Length * (float)Math.Min(m_forces[item].Length, m_temperature);
 
                 item.X += forceTemp.X;
                 item.Y += forceTemp.Y;
 
-                foreach (Item item2 in m_items)
-                {
-                    if (item != item2 && item.Distance(item2)<m_minimumDistance)
-                    {
-                        double move = m_minimumDistance - item.Distance(item2);
-                        item.X += move / 2;
-                        item.Y += move / 2;
-                        item2.X -= move / 2;
-                        item2.Y -= move / 2;
-                    }
-                }
-
                 m_forces[item] = new Vector(0, 0);
             }
 
+            SpaceNodes();
             BringPointsInBounds();
+        }
+
+        private bool SpaceNodes()
+        {
+            bool found = false;
+            foreach (IPosititonable item in m_items)
+            {
+                foreach (IPosititonable item2 in m_items)
+                {
+                    Vector delta = new Vector(item.X - item2.X, item.Y - item2.Y);
+                    
+                    if (item != item2 && delta.Length < m_minimumDistance)
+                    {
+                        Vector move;
+                        if(delta.Length==0)
+                        {
+                            move = Vector.RandomVector();
+                            move *= (m_minimumDistance/move.Length)/1.9;
+                        }
+                        else
+                        {
+                            move = delta * ((m_minimumDistance-delta.Length) / delta.Length) / 1.9;
+                        }
+
+                        item.X += move.X;
+                        item.Y += move.Y;
+                        item2.X -= move.X;
+                        item2.Y -= move.Y;
+                        found = true;
+                    }
+                }
+            }
+
+            return found;
         }
 
         private void BringPointsInBounds()
         {
-            foreach (Item item in m_items)
+            foreach (IPosititonable item in m_items)
             {
                 item.X = (float)Math.Max(0, Math.Min(m_width, item.X));
                 item.Y = Math.Max(0, Math.Min(m_height, item.Y));
             }
         }
-    }
-
-    public class Item : IPosititonable
-    {
-
-        private string m_text;
-        private List<Item> m_dependency = new List<Item>();
-
-        public Item(string text)
-        {
-            Text = text;
-        }
-
-        public double X { get; set; }
-
-        public double Y { get; set; }
-
-
-        public string Text
-        {
-            get
-            {
-                return m_text;
-            }
-            set
-            {
-                m_text = value;
-            }
-        }
-
-        public void AddDependency(Item item)
-        {
-            m_dependency.Add(item);
-        }
-
-        public double Distance(Item item)
-        {
-            return Math.Sqrt((X-item.X)*(X-item.X)
-                +(Y-item.Y)*(Y-item.Y));
-        }
-
-        public IEnumerable<Item> Dependencies
-        {
-            get
-            {
-                return m_dependency;
-            }
-        }
-    }
-
-    public class BackedItem<T> : Item
-    {
-        public BackedItem(T item, string name)
-            : base(name)
-        {
-            BackingItem = item;
-        }
-
-        public T BackingItem { get; private set; }
     }
 
     public class Vector
@@ -218,18 +199,13 @@ namespace Cerrio.Samples.SDC
         {
             X = x;
             Y = y;
+            Length=Math.Sqrt(x * x + y * y);
         }
 
-        public double X { get; set; }
-        public double Y { get; set; }
+        public double X { get; private set; }
+        public double Y { get; private set; }
 
-        public double Length
-        {
-            get
-            {
-                return Math.Sqrt((X * X + Y * Y) / 2);
-            }
-        }
+        public double Length { get; private set; }
 
         public static Vector operator +(Vector v1,Vector v2)
         {
@@ -248,7 +224,31 @@ namespace Cerrio.Samples.SDC
 
         public static Vector operator /(Vector v, double d)
         {
+            if(0==d)
+            {
+                throw new DivideByZeroException("Can't divide a vector by zero.");
+            }
+
             return new Vector(v.X / d, v.Y / d);
+        }
+
+        public override string ToString()
+        {
+            return string.Format("({0:0.00},{1:0.00})", X, Y);
+        }
+
+        private static Random s_r = new Random();
+
+        public static Vector RandomVector()
+        {
+            Vector v;
+
+            do
+            {
+                v = new Vector(s_r.NextDouble(), s_r.NextDouble());
+            } while (v.Length == 0);
+
+            return v;
         }
     }
 }

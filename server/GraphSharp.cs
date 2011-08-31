@@ -14,7 +14,6 @@ namespace Cerrio.Samples.SDC
     class GraphSharp<TGraphItem>
         where TGraphItem : class, IPosititonable
     {
-        //CircularLayoutAlgorithm<TGraphItem, GraphEdge, BidirectionalGraph<TGraphItem, GraphEdge>> m_algo;
         BidirectionalGraph<TGraphItem, GraphEdge> m_graph;
         StandardLayoutAlgorithmFactory<TGraphItem, GraphEdge, BidirectionalGraph<TGraphItem, GraphEdge>> m_factory;
 
@@ -22,20 +21,22 @@ namespace Cerrio.Samples.SDC
         {
             {"KK", new KKLayoutParameters
                {
-                   Height=1,
-                   Width=1,
+                   Height=100,
+                   Width=100,
+                   K=.3,
+                   DisconnectedMultiplier=.25
                }
             },
             {"LinLog", new LinLogLayoutParameters
                {
-                   AttractionExponent=1,
-                   RepulsiveExponent=1
+                   AttractionExponent=.7,
+                   RepulsiveExponent=.3
                }
             },
             {"BoundedFR", new BoundedFRLayoutParameters
                               {
-                   Width=1,
-                   Height=1
+                   Width=300,
+                   Height=300,
                }
             }
     
@@ -45,16 +46,6 @@ namespace Cerrio.Samples.SDC
         {
             m_graph = GraphHelper.CreateGraph(items, edges, p => new GraphEdge(p.First, p.Second));
             m_factory = new StandardLayoutAlgorithmFactory<TGraphItem, GraphEdge, BidirectionalGraph<TGraphItem, GraphEdge>>();
-        }
-
-        public IEnumerable<TGraphItem> LayoutLinLog()
-        {
-            return Layout("LinLog");
-        }
-
-        public IEnumerable<TGraphItem> LayoutCircular()
-        {
-            return Layout("Circular");
         }
 
         public IEnumerable<TGraphItem> Layout(string type)
@@ -67,7 +58,8 @@ namespace Cerrio.Samples.SDC
             }
             else
             {
-                parameters = m_factory.CreateParameters(type, null);
+                parameters = null;
+                //parameters = m_factory.CreateParameters(type, null);
             }
 
 
@@ -79,6 +71,11 @@ namespace Cerrio.Samples.SDC
             }
 
             algo.Compute();
+
+            if(algo.VertexPositions.Any(vp=>double.IsNaN(vp.Value.X)||double.IsNaN(vp.Value.Y)))
+            {
+                throw new Exception("Algo: " + type + " produced invalid results");
+            }
 
             double maxX = algo.VertexPositions.Values.Max(m => m.X);
             double minX = algo.VertexPositions.Values.Min(m => m.X);

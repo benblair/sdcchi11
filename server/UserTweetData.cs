@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Web;
-using Bbr.Diagnostics;
 
 namespace Cerrio.Samples.SDC
 {
     public class UserTweetData : IPosititonable
     {
         private static Random s_random = new Random();
-        private List<UserTweetData> m_dependency = new List<UserTweetData>();
+        private List<IPosititonable> m_dependency = new List<IPosititonable>();
         public UserTweetData()
         {
             WordProbibility = new Dictionary<string, double>();
@@ -40,10 +39,10 @@ namespace Cerrio.Samples.SDC
                                                            links.Add(s.Value);
                                                            return "";
                                                        };
-                string corbusWithoutLinks=Regex.Replace(corbusWithoutAts, @"http:[/|\]{2}[\w|/|\|\.]+", new MatchEvaluator(htmlGrabber),RegexOptions.IgnoreCase);
+                string corbusWithoutLinks=Regex.Replace(corbusWithoutAts, @"http:[^ ]+", new MatchEvaluator(htmlGrabber),RegexOptions.IgnoreCase);
 
                 string[] words = corbusWithoutLinks.ToLowerInvariant().Split(
-                    new[] { ' ', '.', ',', '!', '?', ':', ';', '@', '/', '#', '\'','\"' }, StringSplitOptions.RemoveEmptyEntries)
+                    new[] { ' ', '.', ',', '!', '?', ':', ';', '@', '/', '#', '\'','\"','-' }, StringSplitOptions.RemoveEmptyEntries)
                     .Where(word => word.Length > 3)
                     .ToArray();
 
@@ -74,6 +73,7 @@ namespace Cerrio.Samples.SDC
 
         public double Y { get; set; }
 
+
         public double Probability(string word)
         {
             if (!WordProbibility.ContainsKey(word))
@@ -89,18 +89,23 @@ namespace Cerrio.Samples.SDC
             m_dependency.Add(item);
         }
 
-        public double Distance(UserTweetData item)
+        public double Distance(IPosititonable item)
         {
             return Math.Sqrt((X - item.X) * (X - item.X)
                 + (Y - item.Y) * (Y - item.Y));
         }
 
-        public IEnumerable<UserTweetData> Dependencies
+        public IEnumerable<IPosititonable> Dependencies
         {
             get
             {
                 return m_dependency;
             }
+        }
+
+        public override string ToString()
+        {
+            return UserName;
         }
     }
 }
