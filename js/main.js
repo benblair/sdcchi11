@@ -14,9 +14,16 @@ var del = d3.scale.linear().domain([0,1]).range([0,1]);
 
 var canvas = $("#peeps");
 var socket;
+
+var makeSafeId = function(s){
+    if(s===null){
+        return null;
+    }
+    
+    return s.replace(new RegExp("[\\W]","g"),"");
+}
     
 var drawPeep = function(data) {
-    console.log("drawing peep: "+data.handle+": "+data.pic);
     var newPeep = $('<img />');
     newPeep.attr("src", data.pic);
     newPeep.attr("title", data.handle);
@@ -69,7 +76,7 @@ var addGroup = function(groupName,x,y){
         groupDiv.click(excludeTerm);
         groupDiv.css("left", (group.x) + "px");
         groupDiv.css("top", (group.y) + "px");
-        groupDiv.attr("id", "group-" + groupName);
+        groupDiv.attr("id", "group-" + makeSafeId(groupName));
         canvas.append(groupDiv);
     }
     else {
@@ -82,7 +89,7 @@ var removeUserFromGroup = function(groupName){
     if (null != group) {
         group.count--;
         if (0 == group.count) {
-            $('#group-' + groupName).remove();
+            $('#group-' + makeSafeId(groupName)).remove();
             groups[groupName]=undefined;
         }
     }
@@ -231,7 +238,6 @@ var showUserTweets = function(handle) {
 var excludedWords = [];
 
 var loadPeepsDom = function() {
-    console.log("loadPeepsDom: "+peeps.length);
     peepsLoaded = true;
     canvas = $("#peeps");
     
