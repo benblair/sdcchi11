@@ -31,44 +31,57 @@ var drawPeep = function(data) {
 };
 
 var normalizePeep = function(peep) {
-    if(!peep.TwitterHandle) {
-        var origPeep = peepsByKey[peep.Key];
-        if(origPeep) {
-            peep.TwitterHandle = origPeep.TwitterHandle;
-        }
-    }
-    return {
-        x: peep.X,
-        y: peep.Y,
-        pic: peep.ProfilePic,
-        handle: peep.TwitterHandle,
-        name: peep.RealName,
-        group: peep.GroupName
+    var origPeep = peepsByKey[peep.Key];
+
+    var newPeep = {
+        key: peep.Key,
+        x: (peep.X||null==origPeep) ? peep.X : origPeep.X,
+        y: (peep.Y||null==origPeep) ? peep.Y : origPeep.Y,
+        pic: (peep.ProfilePic ||null==origPeep)? peep.ProfilePic : origPeep.pic,
+        handle: (peep.TwitterHandle||null==origPeep) ? peep.TwitterHandle : origPeep.handle,
+        name: (peep.RealName||null==origPeep) ? peep.RealName : origPeep.name,
+        group: (peep.GroupName||null==origPeep) ? peep.GroupName : origPeep.group,
+        groupOld: origPeep?origPeep.group:undefined,
+        groupCenterX :(peep.GroupCenterX||null==origPeep) ? peep.GroupCenterX : origPeep.groupCenterX, 
+        groupCenterY :(peep.GroupCenterY||null==origPeep) ? peep.GroupCenterY : origPeep.groupCenterY, 
     };
+    
+    peepsByKey[newPeep.key]=newPeep;
+    
+    return newPeep;
 };
 
-var addPeep = function(peep) {
-    peepsByKey[peep.Key] = peep;
-    var group = groups[peep.GroupName];
-    if(!group) {
+var addGroup = function(groupName,x,y){
+    var group = groups[groupName];
+    if (!group) {
         group = {
-            x: getX(peep.GroupCenterX),
-            y: getY(peep.GroupCenterY),
-            name: peep.GroupName
+            x: getX(x),
+            y: getY(y),
+            name: groupName,
+            count: 1
         };
-        groups[peep.GroupName] = group;
-        
+        groups[groupName] = group;
+
         var canvas = $("#groups");
-        var groupDiv = $('<div class="group">' + group.name + '</div>');
+        var groupDiv = $('<div class="group">' + groupName + '</div>');
         groupDiv.css("left", (group.x) + "px");
         groupDiv.css("top", (group.y) + "px");
-        groupDiv.attr("id", "group-" + group.name);
+        groupDiv.attr("id", "group-" + groupName);
         canvas.append(groupDiv);
     }
-    var data = normalizePeep(peep);
-    peeps.push(data);
-    if(!peepsLoaded) {
-        drawPeep(data);
+    else {
+        group.count++;
+    }
+};
+
+var addPeep = function(data) {
+    var peep = normalizePeep(data);
+    peeps.push(peep);
+    
+    addGroup(peep.group,peep.groupCenterX,peep.groupCenterY);
+
+    if (!peepsLoaded) {
+        drawPeep(peep);
     }
 };
 
@@ -76,10 +89,10 @@ var modifyPeep = function(data) {
     var peep = normalizePeep(data);
     var peepDiv = $('#' + peep.handle);
     var changes = { };
-    if(peep.x) {
+    if(data.X) {
         changes.left = getX(peep.x);
     }
-    if(peep.y) {
+    if(data.Y) {
         changes.top = getY(peep.y);
     }
     peepDiv.animate(
@@ -87,11 +100,49 @@ var modifyPeep = function(data) {
         {
             duration: 500
         });
-    };
+        
+    var groupChanges = {};
+    if(data.GroupCenterX) {
+        changes.left = getX(peep.groupCenterX);
+    }
+    if(data.GroupCenterY) {
+        changes.top = getY(peep.groupCenterY);
+    }
+    
+    if(data.GroupCenterX||data.GroupCenterY){
+        $('#group-' + peep.group).animate(
+        changes,
+        {
+            duration: 500
+        });
+    }
+    
+    if(data.GroupName && (peep.group!==peep.groupOld)){
+        var oldGroup = groups[peep.groupOld];
+        if(null!=oldGroup){
+            oldGroup.count--;
+            if (0 === oldGroup.count) {
+                $('#group-' + peep.groupOld).remove();
+                groups[peep.group]=undefined;
+            }
+        }
+        
+        addGroup(peep.group,peep.groupCenterX,peep.groupCenterY);
+    }
+};
 
 var deletePeep = function(data) {
     var peep = normalizePeep(data);
     $('#' + peep.handle).remove();
+
+    var group = groups[peep.group];
+    if (null != group) {
+        group.count--;
+        if (0 === group.count) {
+            $('#group-' + peep.group).remove();
+            groups[peep.group]=undefined;
+        }
+    }
 };
 
 var updatePeep = function(update) {
