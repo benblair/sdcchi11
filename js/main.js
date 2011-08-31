@@ -87,19 +87,25 @@ var modifyPeep = function(data) {
         {
             duration: 500
         });
+    };
+
+var deletePeep = function(data) {
+    var peep = normalizePeep(data);
+    $('#' + peep.handle).remove();
 };
 
 var updatePeep = function(update) {
     var action = update.action;
     var item = update.item;
-    switch(action) {
+    switch (action) {
         case 'add':
-                addPeep(item);
+            addPeep(item);
             break;
         case 'modify':
-                modifyPeep(item);
+            modifyPeep(item);
             break;
         case 'delete':
+            deletePeep(item);
             break;
         default:
             return;
