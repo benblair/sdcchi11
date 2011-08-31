@@ -10,7 +10,9 @@
   <link href='http://fonts.googleapis.com/css?family=Carter+One' rel='stylesheet' type='text/css'>
   <!-- <script src="less.js" type="text/javascript"></script> -->
 </head>
-<body id="body" style="background-image: url(http://subtlepatterns.com/patterns/black_linen_v2.png); background-attachment: initial; background-origin: initial; background-clip: initial; background-color: initial; background-position: initial initial; background-repeat: initial initial; ">
+<body id="body"
+style="background-image: url(http://subtlepatterns.com/patterns/black_linen_v2.png); background-attachment: initial; background-origin: initial; background-clip: initial; background-color: initial; background-position: initial initial; background-repeat: initial initial; "
+onload="loaded()">
 
     <div id="title">
         <span class="title-text">Gather </span><span class="orange-title-text">Peeps</span><span id="user-text">@stochastic_code</span><span id="search-term">#SDCChi</span>
@@ -63,6 +65,7 @@
     <script src="https://api.cerrio.com/socket.io/socket.io.js" type="text/javascript"></script>
     <script src="https://api.cerrio.com/apps/client.js" type="text/javascript"></script>
     <script src="https://github.com/mbostock/d3/raw/v2.0.4/d3.js" type="text/javascript"></script>
+    <script src="js/jquery.cookie.js" type="text/javascript"></script>
     <script src="js/main.js" type="text/javascript"></script>
     
     <script type="text/javascript">
@@ -72,10 +75,14 @@
             $('#sign-in').hide();
             username = $('#username').val();
             hashtag = $('#hashcode').val().toLowerCase();
-            if(username.slice(0,1) !== '@') {
+
+            $.cookie('username', username, { path: '/', expires: 365 });
+            $.cookie('hashtag', hashtag, { path: '/', expires: 365 });
+            
+            if (username.slice(0, 1) !== '@') {
                 username = '@' + username;
             }
-            if(hashtag.slice(0,1) !== '#') {
+            if (hashtag.slice(0, 1) !== '#') {
                 hashtag = '#' + hashtag;
             }
             $('#user-text').text(username);
@@ -88,7 +95,24 @@
         };
         
         $(function(){
-        });
+    });
+
+    var loaded = function() {
+        var valuesLoaded = 0;
+        if ($.cookie('username')) {
+            valuesLoaded++;
+            username = $.cookie('username');
+            $('#username').val(username);
+            $('#username').text(username);
+        }
+
+        if ($.cookie('hashtag')) {
+            valuesLoaded++;
+            hashtag = $.cookie('hashtag');
+            $('#hashcode').val(hashtag);
+            $('#hashcode').text(hashtag);
+        }
+    }
     </script>
 
 </body>

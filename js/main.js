@@ -138,7 +138,7 @@ var connectToApi = function(callback) {
     socket.emit("stream", {
         id: "peeps",
         uri: "SDC/Output/Data",
-        subscription: "True" //"@.OriginatingUser = '" +  username + "'"
+        subscription: "@.OriginatingUser = '" +  username + "'"
     },
     callback);
     
