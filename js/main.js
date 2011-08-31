@@ -16,10 +16,12 @@ var canvas = $("#peeps");
 var socket;
     
 var drawPeep = function(data) {
+    console.log("drawing peep: "+data.handle+": "+data.pic);
     var newPeep = $('<img />');
     newPeep.attr("src", data.pic);
     newPeep.attr("title", data.handle);
     newPeep.attr("alt", data.handle);
+    newPeep.attr("id", "img-"+data.handle);
     newPeep.attr("width", "50px");
     newPeep.attr("height", "50px");
     var peepDiv = $('<div class="peep"></div>');
@@ -92,7 +94,7 @@ var addPeep = function(data) {
     
     addGroup(peep.group,peep.groupCenterX,peep.groupCenterY);
 
-    if (!peepsLoaded) {
+    if (peepsLoaded) {
         drawPeep(peep);
     }
 };
@@ -112,6 +114,9 @@ var modifyPeep = function(data) {
         {
             duration: 500
         });
+    if(data.ProfilePic){
+        $('#img-' + peep.handle).attr("src",peep.pic);
+    }
         
     var groupChanges = {};
     if(data.GroupCenterX) {
@@ -226,6 +231,7 @@ var showUserTweets = function(handle) {
 var excludedWords = [];
 
 var loadPeepsDom = function() {
+    console.log("loadPeepsDom: "+peeps.length);
     peepsLoaded = true;
     canvas = $("#peeps");
     
