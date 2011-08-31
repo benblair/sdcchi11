@@ -64,6 +64,7 @@ var addGroup = function(groupName,x,y){
 
         var canvas = $("#groups");
         var groupDiv = $('<div class="group">' + groupName + '</div>');
+        groupDiv.click(excludeTerm);
         groupDiv.css("left", (group.x) + "px");
         groupDiv.css("top", (group.y) + "px");
         groupDiv.attr("id", "group-" + groupName);
@@ -71,6 +72,17 @@ var addGroup = function(groupName,x,y){
     }
     else {
         group.count++;
+    }
+};
+
+var removeUserFromGroup = function(groupName){
+    var group = groups[groupName];
+    if (null != group) {
+        group.count--;
+        if (0 == group.count) {
+            $('#group-' + groupName).remove();
+            groups[groupName]=undefined;
+        }
     }
 };
 
@@ -113,19 +125,12 @@ var modifyPeep = function(data) {
         $('#group-' + peep.group).animate(
         changes,
         {
-            duration: 500
+            duration: 1
         });
     }
     
-    if(data.GroupName && (peep.group!==peep.groupOld)){
-        var oldGroup = groups[peep.groupOld];
-        if(null!=oldGroup){
-            oldGroup.count--;
-            if (0 === oldGroup.count) {
-                $('#group-' + peep.groupOld).remove();
-                groups[peep.group]=undefined;
-            }
-        }
+    if(data.GroupName && (peep.group!=peep.groupOld)){
+        removeUserFromGroup(peep.groupOld);
         
         addGroup(peep.group,peep.groupCenterX,peep.groupCenterY);
     }
@@ -134,15 +139,7 @@ var modifyPeep = function(data) {
 var deletePeep = function(data) {
     var peep = normalizePeep(data);
     $('#' + peep.handle).remove();
-
-    var group = groups[peep.group];
-    if (null != group) {
-        group.count--;
-        if (0 === group.count) {
-            $('#group-' + peep.group).remove();
-            groups[peep.group]=undefined;
-        }
-    }
+    removeUserFromGroup(peep.group);
 };
 
 var updatePeep = function(update) {
@@ -231,21 +228,7 @@ var excludedWords = [];
 var loadPeepsDom = function() {
     peepsLoaded = true;
     canvas = $("#peeps");
-    $(".group").click(function(){
-        var groupName = $(this).text();
-        $(this).hide("explode", 1500);
-        excludedWords.push(groupName);
-        socket.emit("update", {
-            id: 'login',
-            uri: 'SDC/Input/Users',
-            action: 'modify',
-            itemKey: username,
-            item: {
-                DeletedTerms: excludedWords.join(',')
-            }
-        });
-        
-    });
+    
     var i;
     for(i = 0; i < peeps.length; i++) {
         var data = peeps[i];
@@ -268,6 +251,21 @@ var loadPeepsDom = function() {
             });   
         }
     }, 1000);
+};
+
+var excludeTerm = function(){
+    var groupName = $(this).text();
+    $(this).hide("explode", 1500);
+    excludedWords.push(groupName);
+    socket.emit("update", {
+        id: 'login',
+        uri: 'SDC/Input/Users',
+        action: 'modify',
+        itemKey: username,
+        item: {
+            DeletedTerms: excludedWords.join(',')
+        }
+    });
 };
 
 
