@@ -12,6 +12,7 @@ namespace Cerrio.Samples.SDC
     class PerUserGrouper
     {
         private Pig<OutputData, string> m_ouptutPig;
+        private readonly int m_maxUsers;
         public string RequestingUser { get; private set; }
 
         private static string s_catchAll = "Other";
@@ -19,9 +20,10 @@ namespace Cerrio.Samples.SDC
 
         private Dictionary<string, OutputData> m_lastResults = new Dictionary<string, OutputData>();
 
-        public PerUserGrouper(Pig<OutputData, string> outputPig, string requestingUser)
+        public PerUserGrouper(Pig<OutputData, string> outputPig, string requestingUser,int maxUsers)
         {
             m_ouptutPig = outputPig;
+            m_maxUsers = maxUsers;
             RequestingUser = requestingUser;
 
 
@@ -45,7 +47,9 @@ namespace Cerrio.Samples.SDC
             {
                 Dictionary<string, UserTweetData> data = new Dictionary<string, UserTweetData>();
 
-                foreach (InputData inputLine in inputData)
+                foreach (InputData inputLine in inputData
+                    .OrderByDescending(d=>d.Text.Length)
+                    .Take(m_maxUsers))
                 {
                     data[inputLine.User] = new UserTweetData
                                                {
@@ -72,7 +76,7 @@ namespace Cerrio.Samples.SDC
                 int connections = AddConnections(data, wordCounts);
 
 
-                EventLog.Log("added {0} connections for {1} users", connections, data.Count);
+                EventLog.Log(Severity.Medium,"added {0} connections for {1} users", connections, data.Count);
                 List<UserTweetData> items = data.Values.ToList();
                 //items = ThirdParty(items, "LinLog").ToList(); //shows very little layout persistance
 
@@ -95,7 +99,7 @@ namespace Cerrio.Samples.SDC
                     }
                 }
 
-                EventLog.Log("done " + RequestingUser);
+                EventLog.Log("Done with: " + RequestingUser);
 
                 if (null != m_ouptutPig)
                 {
@@ -130,6 +134,7 @@ namespace Cerrio.Samples.SDC
         private string GetLabel(IEnumerable<UserTweetData> data, ICollection<string> usedLabel, Dictionary<string, WordResults> wordCounts)
         {
             Dictionary<string, double> counts = new Dictionary<string, double>();
+            Dictionary<string, int> uniqueUsers = new Dictionary<string, int>();
 
             foreach (UserTweetData d in data)
             {
@@ -137,7 +142,27 @@ namespace Cerrio.Samples.SDC
                 {
                     if (!usedLabel.Contains(word))
                     {
-                        double score = ScoreWord(word, d, wordCounts.GetValueOrDefault(word));
+                        if(!uniqueUsers.ContainsKey(word))
+                        {
+                            uniqueUsers[word] = 1;
+                        }
+                        else
+                        {
+                            uniqueUsers[word]++;
+                        }
+
+                        double probiblityInMainCorpus;
+
+                        if(wordCounts.ContainsKey(word))
+                        {
+                            probiblityInMainCorpus = wordCounts[word].Probability;
+                        }
+                        else
+                        {
+                            probiblityInMainCorpus = 1;
+                        }
+
+                        double score = d.Probability(word) / probiblityInMainCorpus;
                         if (!counts.ContainsKey(word))
                         {
                             counts[word] = score;
@@ -155,7 +180,7 @@ namespace Cerrio.Samples.SDC
                 return s_catchAll;
             }
 
-            string result = counts.Keys.MaxElement(k => counts[k]);
+            string result = counts.Keys.MaxElement(k => counts[k] * uniqueUsers[k]);
             return result;
         }
 
@@ -165,7 +190,7 @@ namespace Cerrio.Samples.SDC
             double[][] values = new double[items.Count][];
             List<Pair<double, Pair<int, int>>> counts = new List<Pair<double, Pair<int, int>>>();
             int links = 0;
-
+            
             for (int i = 0; i < items.Count; i++)
             {
                 values[i] = new double[items.Count];
@@ -177,9 +202,15 @@ namespace Cerrio.Samples.SDC
                         if (word.Length > 3)
                         {
                             WordResults wordresult = wordCounts.GetValueOrDefault(word);
-                            count += Math.Min(
-                                ScoreWord(word, items[i], wordresult),
-                                ScoreWord(word, items[j], wordresult));
+
+                            /// the more words in common 2 users have the higher thier similarity
+                            /// get extra points for length of word
+                            /// get extra points for rarity of word in overall corpus
+
+                            double bonus= word.Length / 10.0 / (null == wordresult ? 1 : wordresult.Probability);
+
+
+                            count += bonus*Math.Min(items[i].Probability(word), items[j].Probability(word));
                         }
                     }
                     values[i][j] = count;
@@ -202,8 +233,7 @@ namespace Cerrio.Samples.SDC
                     if (values[i][j] > avg)
                     {
                         items[i].AddDependency(items[j]);
-                        items[j].AddDependency(items[i]);
-                        links += 2;
+                        links++;
                     }
                 }
             }
@@ -218,7 +248,6 @@ namespace Cerrio.Samples.SDC
                 foreach(UserTweetData user in data.Values)
                 {
                     user.AddDependency(center);
-                    center.AddDependency(user);
                 }
 
                 data.Add("",center);
@@ -226,16 +255,6 @@ namespace Cerrio.Samples.SDC
             }
 
             return links;
-        }
-
-        ///the more words in common 2 users have the higher thier similarity
-        ///  get extra points for length of word
-        ///  get extra points for rarity of word in overall corpus
-        private double ScoreWord(string word, UserTweetData user, WordResults result)
-        {
-            return word.Length / 10.0
-                * 1 / (null == result ? 1 : result.Probability)
-                * user.Probability(word);
         }
 
         private List<KMeans<UserTweetData>.Cluster> Cluster(IList<UserTweetData> data, int k)

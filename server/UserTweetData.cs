@@ -42,7 +42,7 @@ namespace Cerrio.Samples.SDC
                 string corbusWithoutLinks=Regex.Replace(corbusWithoutAts, @"http:[^ ]+", new MatchEvaluator(htmlGrabber),RegexOptions.IgnoreCase);
 
                 string[] words = corbusWithoutLinks.ToLowerInvariant().Split(
-                    new[] { ' ', '.', ',', '!', '?', ':', ';', '@', '/', '#', '\'','\"','-' }, StringSplitOptions.RemoveEmptyEntries)
+                    new[] { '~' ,'!', '@', '#',' ', '.', ',', '?', ':', ';', '/', '\'','\"','-','[',']',}, StringSplitOptions.RemoveEmptyEntries)
                     .Where(word => word.Length > 3)
                     .ToArray();
 

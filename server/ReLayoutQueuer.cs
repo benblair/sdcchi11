@@ -10,6 +10,7 @@ namespace Cerrio.Samples.SDC
 {
     class ReLayoutQueuer
     {
+        private readonly int m_maxUsers;
         private Dictionary<string, List<InputData>> m_data = new Dictionary<string, List<InputData>>();
         private bool m_loaded;
 
@@ -17,6 +18,11 @@ namespace Cerrio.Samples.SDC
         private object m_lockObject = new object();
         private Dictionary<string, PerUserGrouper> m_groupers = new Dictionary<string, PerUserGrouper>();
         private Pig<OutputData, string> m_outputPig;
+
+        public ReLayoutQueuer(int maxUsers)
+        {
+            m_maxUsers = maxUsers;
+        }
 
         public void AddOuputHog(Pig<OutputData,string> outputPig)
         {
@@ -26,7 +32,7 @@ namespace Cerrio.Samples.SDC
             {
                 bool start = m_loaded && !m_groupers.ContainsKey(user);
 
-                m_groupers[user] = new PerUserGrouper(outputPig,user);
+                m_groupers[user] = new PerUserGrouper(outputPig, user, m_maxUsers);
                 m_states[user] = State.Good;//force this next call to do a re-layout
 
                 if (start)
@@ -45,7 +51,7 @@ namespace Cerrio.Samples.SDC
 
             if(!m_groupers.ContainsKey(data.RequestingUser) && null!=m_outputPig)
             {
-                m_groupers[data.RequestingUser] = new PerUserGrouper(m_outputPig,data.RequestingUser);
+                m_groupers[data.RequestingUser] = new PerUserGrouper(m_outputPig, data.RequestingUser, m_maxUsers);
             }
 
             lock (m_lockObject)
