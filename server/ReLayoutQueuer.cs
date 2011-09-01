@@ -81,6 +81,8 @@ namespace Cerrio.Samples.SDC
                 {
                     m_data[data.RequestingUser].Remove(data);
                 }
+
+                StartRelayout(data.RequestingUser);
             }
         }
 

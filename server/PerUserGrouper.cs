@@ -46,6 +46,7 @@ namespace Cerrio.Samples.SDC
             lock (m_lockObject)
             {
                 Dictionary<string, UserTweetData> data = new Dictionary<string, UserTweetData>();
+                Dictionary<string, OutputData> results = new Dictionary<string, OutputData>();
 
                 foreach (InputData inputLine in inputData
                     .OrderByDescending(d=>d.Text.Length)
@@ -58,55 +59,69 @@ namespace Cerrio.Samples.SDC
                                                };
                 }
 
-
-                if (null != m_lastResults)
+                if(data.Any())
                 {
-                    m_lastResults.ForEach(i =>
-                            {
-                                if (data.ContainsKey(i.Key))
-                                {
-                                    data[i.Key].X = i.Value.X;
-                                    data[i.Key].Y = i.Value.Y;
-                                }
-                            });
-                }
-
-                Dictionary<string, WordResults> wordCounts = GetGroupingWords(data.Values);
-
-                int connections = AddConnections(data, wordCounts);
-
-
-                EventLog.Log(Severity.Medium,"added {0} connections for {1} users", connections, data.Count);
-                List<UserTweetData> items = data.Values.ToList();
-                //items = ThirdParty(items, "LinLog").ToList(); //shows very little layout persistance
-
-                ForceDirectedLayout layout = new ForceDirectedLayout(1, 1);
-                layout.Layout(items.As<UserTweetData, IPosititonable>());
-
-                Dictionary<KMeans<UserTweetData>.Cluster, string> clusters = TestClusters(items, wordCounts);
-
-                Dictionary<string, OutputData> results = new Dictionary<string, OutputData>();
-
-                foreach (KMeans<UserTweetData>.Cluster cluster in clusters.Keys)
-                {
-                    string label = clusters[cluster];
-                    EventLog.Log(Severity.Medium, "Got label: " + label + " for user: " + RequestingUser);
-
-                    foreach (UserTweetData item in cluster.Items)
+                    if (null != m_lastResults)
                     {
-                        OutputData output = ConverterToOutPut(item, label, cluster.Mean);
-                        results.Add(output.Key, output);
+                        m_lastResults.ForEach(i =>
+                        {
+                            if (data.ContainsKey(i.Key))
+                            {
+                                data[i.Key].X = i.Value.X;
+                                data[i.Key].Y = i.Value.Y;
+                            }
+                        });
+                    }
+
+                    Dictionary<string, WordResults> wordCounts = GetGroupingWords(data.Values);
+
+                    int connections = AddConnections(data, wordCounts);
+
+
+                    EventLog.Log(Severity.Medium, "added {0} connections for {1} users", connections, data.Count);
+                    List<UserTweetData> items = data.Values.ToList();
+                    //items = ThirdParty(items, "LinLog").ToList(); //shows very little layout persistance
+
+                    ForceDirectedLayout layout = new ForceDirectedLayout(1, 1);
+                    layout.Layout(items.As<UserTweetData, IPosititonable>());
+
+                    Dictionary<KMeans<UserTweetData>.Cluster, string> clusters = TestClusters(items, wordCounts);
+
+
+                    foreach (KMeans<UserTweetData>.Cluster cluster in clusters.Keys)
+                    {
+                        string label = clusters[cluster];
+                        EventLog.Log(Severity.Medium, "Got label: " + label + " for user: " + RequestingUser);
+
+                        foreach (UserTweetData item in cluster.Items)
+                        {
+                            if (!string.IsNullOrEmpty(item.UserName))
+                            {
+                                OutputData output = ConverterToOutPut(item, label, cluster.Mean);
+                                results.Add(output.Key, output);
+                            }
+                        }
                     }
                 }
 
-                EventLog.Log("Done with: " + RequestingUser);
+
+
+                EventLog.Log("Done with user: {0}. Has {1} items", RequestingUser,results.Count);
 
                 if (null != m_ouptutPig)
                 {
+                    if (0 == results.Count && null!=m_lastResults && m_lastResults.Count>0)
+                    {
+                        m_lastResults.Values.ForEach(d => m_ouptutPig.SendDelete(d));
+                    }
                     m_lastResults = results;
+
+
+
                     m_ouptutPig.Republish(results, item => item.OriginatingUser == RequestingUser,
-                                          m_ouptutPig.GetUpdateToken("X", "Y", "GroupName", "GroupCenterX",
-                                                                     "GroupCenterY"));
+                    m_ouptutPig.GetUpdateToken("X", "Y", "GroupName", "GroupCenterX",
+                                             "GroupCenterY"));
+
                 }
             }
         }
@@ -224,7 +239,15 @@ namespace Cerrio.Samples.SDC
             counts.Sort((p1, p2) => p1.First.CompareTo(p2.First));
 
 
-            double avg = counts.Average(p => p.First);
+            double avg;
+            if(counts.Any())
+            {
+                avg = counts.Average(p => p.First);
+            }
+            else
+            {
+                avg = 0;
+            }
 
             for (int i = 0; i < items.Count; i++)
             {
