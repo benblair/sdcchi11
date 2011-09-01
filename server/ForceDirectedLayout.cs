@@ -45,9 +45,9 @@ namespace Cerrio.Samples.SDC
             m_forces = new Dictionary<IPosititonable, Vector>();
 
             double distance = Math.Sqrt(m_width * m_width + m_height * m_height);
-            m_minimumDistance = distance / 100;
-            m_k = (m_c * Math.Sqrt(distance / items.Count()));
-            m_temperature = distance * .2;
+            m_minimumDistance = distance/100;
+            m_k = (m_c * Math.Sqrt(distance/ items.Count()));//m_width*m_height->distance
+            m_temperature = distance * .4;
 
             for (int i = 0; i < m_maxSteps; i++)
             {
@@ -77,7 +77,11 @@ namespace Cerrio.Samples.SDC
 
         private double RepulsiveForce(double distance)
         {
-            return (m_k * m_k / distance);
+            if(distance<2*m_k)
+            {
+                return (m_k * m_k / distance);
+            }
+            return 0;
         }
 
         private double AttractiveForce(double distance)

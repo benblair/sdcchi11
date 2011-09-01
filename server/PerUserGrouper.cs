@@ -239,24 +239,28 @@ namespace Cerrio.Samples.SDC
             counts.Sort((p1, p2) => p1.First.CompareTo(p2.First));
 
 
-            double avg;
+            List<double> thresholds = new List<double>();
             if(counts.Any())
             {
-                avg = counts.Average(p => p.First);
+                thresholds.Add(counts.Skip((int) (5.0*counts.Count/10.0)).First().First);
+                thresholds.Add(counts.Skip((int)(7.5 * counts.Count / 10.0)).First().First);
             }
             else
             {
-                avg = 0;
+                thresholds.Add(0);
             }
 
             for (int i = 0; i < items.Count; i++)
             {
                 for (int j = i + 1; j < items.Count; j++)
                 {
-                    if (values[i][j] > avg)
+                    foreach (double threshhold in thresholds)
                     {
-                        items[i].AddDependency(items[j]);
-                        links++;
+                        if (values[i][j] > threshhold)
+                        {
+                            items[i].AddDependency(items[j]);
+                            links++;
+                        }
                     }
                 }
             }
