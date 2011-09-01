@@ -1,4 +1,3 @@
-var peeps = [];
 var peepsByKey = { };
 var groups = { };
 var excludedGroups = { };
@@ -29,8 +28,8 @@ var drawPeep = function(data) {
     newPeep.attr("title", data.handle);
     newPeep.attr("alt", data.handle);
     newPeep.attr("id", "img-"+data.handle);
-    newPeep.attr("width", "50px");
-    newPeep.attr("height", "50px");
+    newPeep.attr("width", "30px");
+    newPeep.attr("height", "30px");
     var peepDiv = $('<div class="peep"></div>');
     peepDiv.css("left", (width / 2) + "px");
     peepDiv.css("top", (height / 2) + "px");
@@ -95,10 +94,10 @@ var removeUserFromGroup = function(groupName){
     }
 };
 
+
 var addPeep = function(data) {
     var peep = normalizePeep(data);
-    peeps.push(peep);
-    
+
     addGroup(peep.group,peep.groupCenterX,peep.groupCenterY);
 
     if (peepsLoaded) {
@@ -151,6 +150,9 @@ var modifyPeep = function(data) {
 var deletePeep = function(data) {
     var peep = normalizePeep(data);
     $('#' + peep.handle).remove();
+    
+    delete peepsByKey[peep.key];
+    
     removeUserFromGroup(peep.group);
 };
 
@@ -241,27 +243,25 @@ var loadPeepsDom = function() {
     peepsLoaded = true;
     canvas = $("#peeps");
     
-    var i;
-    for(i = 0; i < peeps.length; i++) {
-        var data = peeps[i];
-        drawPeep(data);
-    }
+    $.each(peepsByKey,function(key,value){
+        drawPeep(value);
+    });
+
     $(".peep").click(function(e) {
         
         showUserTweets(e.currentTarget.id);
     });
     setTimeout(function() {
-        for(i = 0; i < peeps.length; i++) {
-            var data = peeps[i];
-            var peepDiv = $("#" + data.handle);
+        $.each(peepsByKey,function(key,value){
+            var peepDiv = $("#" + value.handle);
             peepDiv.animate({
-                left: getX(data.x),
-                top: getY(data.y)
+                left: getX(value.x),
+                top: getY(value.y)
             },
             {
                 duration: 500
-            });   
-        }
+            });
+        });
     }, 1000);
 };
 
