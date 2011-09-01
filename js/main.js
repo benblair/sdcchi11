@@ -134,7 +134,7 @@ var modifyPeep = function(data) {
     }
     
     if(data.GroupCenterX||data.GroupCenterY){
-        $('#group-' + peep.group).animate(
+        $('#group-' + makeSafeId(peep.group)).animate(
         changes,
         {
             duration: 1
