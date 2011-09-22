@@ -2,6 +2,7 @@ var peepsByKey = { };
 var groups = { };
 var excludedGroups = { };
 var peepsLoaded = false;
+var showUserTweets;
 
 var height = window.innerHeight - 20;
 var width = window.innerWidth - 20;
@@ -35,6 +36,10 @@ var drawPeep = function(data) {
     peepDiv.css("top", (height / 2) + "px");
     peepDiv.attr("id", data.handle);
     peepDiv.append(newPeep);
+    peepDiv.click(function(e) {
+        
+        showUserTweets(e.currentTarget.id);
+    });
     canvas.append(peepDiv);
 };
 
@@ -213,7 +218,7 @@ var connectToApi = function(callback) {
 };
 
 
-var showUserTweets = function(handle) {
+showUserTweets = function(handle) {
     var twitterbox = $("#twitter-box");
     twitterbox.css('visibility', 'visible');
     if(twtr) {
